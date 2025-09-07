@@ -6,18 +6,13 @@ import sqlite3
 from datetime import datetime, timezone, timedelta
 from dateutil import parser, tz
 from dotenv import load_dotenv
-from flask import Flask, request, jsonify, render_template, redirect, url_for, Response, g, session
+from flask import Flask, request, jsonify, render_template, redirect, url_for, Response, g
 from flask_socketio import SocketIO
 from twilio.rest import Client
 from twilio.twiml.voice_response import VoiceResponse
 from twilio.jwt.access_token import AccessToken
 from twilio.jwt.access_token.grants import VoiceGrant
 from sms_sender_core import send_sms_batch
-
-from flask import Flask, request, jsonify, render_template, redirect, url_for, Response, g
-from flask_socketio import SocketIO
-from twilio.rest import Client
-from twilio.twiml.voice_response import VoiceResponse
 from datetime import datetime, timezone, timedelta
 from dateutil import parser, tz
 from sms_sender_core import send_sms_batch
@@ -62,7 +57,6 @@ KPIS_DB_PATH = r"C:\Users\admin\Desktop\Ace Holdings\sms_kpis.db"
 
 
 
-from flask import session
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "aceholdings_secret")
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
@@ -582,8 +576,6 @@ def load_kpi_rows_for_month(month):
     conn.close()
     return dates, sent, delivered, delivery_rate, replies, latest
 # ── ROUTES ────────────────────────────────────────────────────────
-
-# --- Login required decorator ---
 
 
 # --- Context processor to inject TWILIO_NUMBERS into all templates ---
