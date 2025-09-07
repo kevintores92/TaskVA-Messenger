@@ -19,16 +19,14 @@ from sms_sender_core import send_sms_batch
 from user_auth import register_user, authenticate_user, get_user
 import shutil
 import webbrowser
-# ── CONFIG ─────────────────────────────────────────────────────────
+## ── CONFIG ─────────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 DB_PATH = os.path.join(BASE_DIR, "messages.db")
 LEADS_CSV_PATH = os.path.join(BASE_DIR, "Leads.csv")
 
-PORT = 5000
-# KPI Dashboard config
-KPIS_DB_PATH = r"C:\Users\admin\Desktop\Ace Holdings\sms_kpis.db"
+## ...existing code...
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
@@ -36,38 +34,24 @@ TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
 TWILIO_NUMBERS = os.environ.get("TWILIO_NUMBERS", "").split(",")
 YOUR_PHONE = os.environ.get("YOUR_PHONE")
 
-load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "aceholdings_secret")
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
-TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
-TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
-TWILIO_NUMBERS = os.environ.get("TWILIO_NUMBERS", "").split(",")
-YOUR_PHONE = os.environ.get("YOUR_PHONE")
 client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 batch_status = {"sent": 0, "total": 0, "running": False}
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
-STATIC_DIR = os.path.join(BASE_DIR, "static")
-DB_PATH = os.path.join(BASE_DIR, "messages.db")
+## ...existing code...
 def get_user_db():
-    username = session.get("username")
-    if username:
-        user_db = os.path.join(BASE_DIR, "users", username, "messages.db")
-        if os.path.exists(user_db):
-            return user_db
+    from flask import has_request_context
+    if has_request_context():
+        username = session.get("username")
+        if username:
+            user_db = os.path.join(BASE_DIR, "users", username, "messages.db")
+            if os.path.exists(user_db):
+                return user_db
     return DB_PATH
-LEADS_CSV_PATH = os.path.join(BASE_DIR, "Leads.csv")
+## ...existing code...
 BATCH_CSV = os.path.join(BASE_DIR, 'Batch.csv')
-PORT = 5000
-KPIS_DB_PATH = r"C:\Users\admin\Desktop\Ace Holdings\sms_kpis.db"
-app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "aceholdings_secret")
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
-client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-batch_status = {"sent": 0, "total": 0, "running": False}
-BASE_DIR = os.path.dirname(__file__)
-BATCH_CSV = os.path.join(BASE_DIR, 'Batch.csv')
+## ...existing code...
 
 
 # Stop flag for batch control
@@ -495,11 +479,13 @@ def process_message(phone, direction, body, timestamp):
 
 # Helper: get all weeks (Mon-Sun) with data in messages table
 def get_user_db():
-    username = session.get("username")
-    if username:
-        user_db = os.path.join(BASE_DIR, "users", username, "messages.db")
-        if os.path.exists(user_db):
-            return user_db
+    from flask import has_request_context
+    if has_request_context():
+        username = session.get("username")
+        if username:
+            user_db = os.path.join(BASE_DIR, "users", username, "messages.db")
+            if os.path.exists(user_db):
+                return user_db
     return DB_PATH
 
 # Helper: get all weeks (Mon-Sun) with data in messages table
