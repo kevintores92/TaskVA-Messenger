@@ -1,3 +1,109 @@
+# --- Subscription payment routes ---
+@app.route("/subscribe", methods=["GET"])
+@login_required
+def subscribe():
+    username = session.get("username")
+    subscribed = is_user_subscribed(username)
+    return render_template("subscribe.html", subscribed=subscribed)
+
+@app.route("/start-subscription", methods=["POST"])
+@login_required
+def start_subscription():
+    username = session.get("username")
+    price_id = request.form.get("price_id")  # Stripe price ID
+    checkout_url = create_checkout_session(username, price_id)
+    return redirect(checkout_url)
+
+@app.route("/payment-success")
+def payment_success():
+    username = request.args.get("username") or session.get("username")
+    activate_user_subscription(username)
+    return render_template("payment_success.html")
+
+# --- Twilio resources management routes ---
+@app.route("/twilio-resources", methods=["GET"])
+@login_required
+def twilio_resources():
+    username = session.get("username")
+    conn = sqlite3.connect(os.path.join(BASE_DIR, 'users.db'))
+    c = conn.cursor()
+    c.execute("SELECT twilio_sid, twilio_number FROM users WHERE username=?", (username,))
+    row = c.fetchone()
+    user = {"twilio_sid": row[0] if row else None, "twilio_number": row[1] if row else None}
+    conn.close()
+    a2p_status = get_a2p_status(username)
+    return render_template("twilio_resources.html", user=user, a2p_status=a2p_status)
+
+@app.route("/assign-number", methods=["POST"])
+@login_required
+def assign_number():
+    username = session.get("username")
+    area_code = request.form.get("area_code", "312")
+    number, err = assign_phone_number_to_subaccount(username, area_code)
+    if err:
+        return f"Error: {err}", 400
+    return redirect(url_for("twilio_resources"))
+
+@app.route("/refresh-a2p-status", methods=["POST"])
+@login_required
+def refresh_a2p_status():
+    username = session.get("username")
+    guide_a2p_registration(username)
+    return redirect(url_for("twilio_resources"))
+from subscription import create_checkout_session, activate_user_subscription, is_user_subscribed
+# --- Subscription payment routes ---
+@app.route("/subscribe", methods=["GET"])
+@login_required
+def subscribe():
+    username = session.get("username")
+    subscribed = is_user_subscribed(username)
+    return render_template("subscribe.html", subscribed=subscribed)
+
+@app.route("/start-subscription", methods=["POST"])
+@login_required
+def start_subscription():
+    username = session.get("username")
+    price_id = request.form.get("price_id")  # Stripe price ID
+    checkout_url = create_checkout_session(username, price_id)
+    return redirect(checkout_url)
+
+@app.route("/payment-success")
+def payment_success():
+    username = request.args.get("username") or session.get("username")
+    activate_user_subscription(username)
+    return render_template("payment_success.html")
+# --- Twilio resources management routes ---
+@app.route("/twilio-resources", methods=["GET"])
+@login_required
+def twilio_resources():
+    username = session.get("username")
+    conn = sqlite3.connect(os.path.join(BASE_DIR, 'users.db'))
+    c = conn.cursor()
+    c.execute("SELECT twilio_sid, twilio_number FROM users WHERE username=?", (username,))
+    row = c.fetchone()
+    user = {"twilio_sid": row[0] if row else None, "twilio_number": row[1] if row else None}
+    conn.close()
+    a2p_status = get_a2p_status(username)
+    return render_template("twilio_resources.html", user=user, a2p_status=a2p_status)
+
+@app.route("/assign-number", methods=["POST"])
+@login_required
+def assign_number():
+    username = session.get("username")
+    area_code = request.form.get("area_code", "312")
+    number, err = assign_phone_number_to_subaccount(username, area_code)
+    if err:
+        return f"Error: {err}", 400
+    return redirect(url_for("twilio_resources"))
+
+@app.route("/refresh-a2p-status", methods=["POST"])
+@login_required
+def refresh_a2p_status():
+    username = session.get("username")
+    guide_a2p_registration(username)
+    return redirect(url_for("twilio_resources"))
+from twilio_resources import assign_phone_number_to_subaccount, get_a2p_status
+from twilio_onboarding import create_twilio_subaccount, guide_a2p_registration
 import os
 import csv
 import threading
@@ -13,6 +119,8 @@ from twilio.twiml.voice_response import VoiceResponse
 from twilio.jwt.access_token import AccessToken
 from twilio.jwt.access_token.grants import VoiceGrant
 from sms_sender_core import send_sms_batch
+from user_auth import register_user, authenticate_user, get_user
+import shutil
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 app = Flask(__name__)
@@ -28,6 +136,13 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 DB_PATH = os.path.join(BASE_DIR, "messages.db")
+def get_user_db():
+    username = session.get("username")
+    if username:
+        user_db = os.path.join(BASE_DIR, "users", username, "messages.db")
+        if os.path.exists(user_db):
+            return user_db
+    return DB_PATH
 LEADS_CSV_PATH = os.path.join(BASE_DIR, "Leads.csv")
 BATCH_CSV = os.path.join(BASE_DIR, 'Batch.csv')
 PORT = 5000
@@ -85,23 +200,58 @@ def login():
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
-        if username == "aceholdings" and password == "kevin123":
+        if authenticate_user(username, password):
             session["logged_in"] = True
+            session["username"] = username
             return redirect(url_for("dashboard"))
         else:
             error = "Invalid username or password."
     return render_template("login.html", error=error)
 
+# --- Registration route ---
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    error = None
+    if request.method == "POST":
+        username = request.form.get("username")
+        email = request.form.get("email")
+        password = request.form.get("password")
+        success, err = register_user(username, email, password)
+        if success:
+            # Create user workspace
+            user_dir = os.path.join(BASE_DIR, "users", username)
+            os.makedirs(user_dir, exist_ok=True)
+            # Copy template files
+            template_db = os.path.join(BASE_DIR, "messages.db")
+            user_db = os.path.join(user_dir, "messages.db")
+            if os.path.exists(template_db):
+                shutil.copy(template_db, user_db)
+            # Create Twilio subaccount
+            create_twilio_subaccount(username)
+            # Start A2P onboarding
+            guide_a2p_registration(username)
+            # Assign phone number
+            assign_phone_number_to_subaccount(username)
+            return redirect(url_for("login"))
+        else:
+            error = err
+    return render_template("register.html", error=error)
 # --- Logout route ---
 @app.route("/logout")
 def logout():
     session.pop("logged_in", None)
+    session.pop("username", None)
     return redirect(url_for("login"))
 
 # --- Context processor to inject TWILIO_NUMBERS into all templates ---
 @app.context_processor
 def inject_twilio_numbers():
     return {"TWILIO_NUMBERS": TWILIO_NUMBERS}
+@app.context_processor
+def inject_user():
+    username = session.get("username")
+    a2p_status = get_a2p_status(username) if username else None
+    return {"current_user": username, "a2p_status": a2p_status}
 from functools import wraps
 
 # --- Login required decorator ---
@@ -115,7 +265,7 @@ def login_required(f):
 
 # --- MIGRATION: Ensure contact_drip_assignments table exists ---
 def ensure_drip_assignment_table():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(get_user_db())
     c = conn.cursor()
     c.execute('''
         CREATE TABLE IF NOT EXISTS contact_drip_assignments (
@@ -562,10 +712,20 @@ def dashboard():
                           selected_week=week)
 
 # Helper: get all weeks (Mon-Sun) with data in messages table
+def get_user_db():
+    username = session.get("username")
+    if username:
+        user_db = os.path.join(BASE_DIR, "users", username, "messages.db")
+        if os.path.exists(user_db):
+            return user_db
+    return DB_PATH
+
+# Helper: get all weeks (Mon-Sun) with data in messages table
 def get_available_weeks():
-    if not os.path.exists(DB_PATH):
+    db_path = get_user_db()
+    if not os.path.exists(db_path):
         return []
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(db_path)
     c = conn.cursor()
     c.execute("SELECT MIN(date(timestamp)), MAX(date(timestamp)) FROM messages")
     min_date, max_date = c.fetchone()

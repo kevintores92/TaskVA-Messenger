@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>User Twilio Resources</title>
+</head>
+<body>
+    <h2>Your Twilio Resources</h2>
+    <p><strong>Twilio Subaccount SID:</strong> {{ user.twilio_sid or 'Not assigned' }}</p>
+    <p><strong>Phone Number:</strong> {{ user.twilio_number or 'Not assigned' }}</p>
+    <p><strong>A2P Campaign Status:</strong> {{ a2p_status or 'Unknown' }}</p>
+    <form method="post" action="{{ url_for('assign_number') }}">
+        <label>Assign new phone number (area code):</label>
+        <input type="text" name="area_code" value="312" maxlength="3" required>
+        <button type="submit">Assign</button>
+    </form>
+    <form method="post" action="{{ url_for('refresh_a2p_status') }}">
+        <button type="submit">Refresh A2P Status</button>
+    </form>
+</body>
+</html>

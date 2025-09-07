@@ -72,36 +72,40 @@ const delivered = {{ delivered|tojson }};
 const delivery_rate = {{ delivery_rate|tojson }};
 const replies = {{ replies|tojson }};
 
-// Lead Breakdown Donut
-const leadBreakdownData = {
+
+// Replies Breakdown by Tag Donut
+const repliesBreakdownData = {
   labels: [
-    'Hot Leads',
-    'Warm Leads',
+    'Hot',
     'Nurture',
-    'Drips',
-    'No Status'
+    'Drip',
+    'Not interested',
+    'Wrong Number',
+    'DNC'
   ],
   datasets: [{
     data: [
-      {{ lead_breakdown['Hot Leads'] }},
-      {{ lead_breakdown['Warm Leads'] }},
+      {{ lead_breakdown['Hot'] }},
       {{ lead_breakdown['Nurture'] }},
-      {{ lead_breakdown['Drips'] }},
-      {{ lead_breakdown['No Status'] }}
+      {{ lead_breakdown['Drip'] }},
+      {{ lead_breakdown['Not interested'] }},
+      {{ lead_breakdown['Wrong Number'] }},
+      {{ lead_breakdown['DNC'] }}
     ],
     backgroundColor: [
       '#d77b7b', // Hot
-      '#ffe082', // Warm
       '#8bc34a', // Nurture
-      '#5c6bc0', // Drips
-      '#e0e0e0'  // No Status
+      '#5c6bc0', // Drip
+      '#e0e0e0', // Not interested
+      '#bdbdbd', // Wrong Number
+      '#bdbdbd'  // DNC
     ],
     borderWidth: 1
   }]
 };
-new Chart(document.getElementById('leadBreakdownChart'), {
+new Chart(document.getElementById('repliesBreakdownChart'), {
   type: 'doughnut',
-  data: leadBreakdownData,
+  data: repliesBreakdownData,
   options: {
     cutout: '70%',
     plugins: {
@@ -159,21 +163,24 @@ new Chart(document.getElementById('lineChart'), {
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
 {% block content %}
-<div style="margin: 24px 0 16px 0; display: flex; align-items: center; gap: 32px;">
-  <form method="get" action="/dashboard" style="margin:0;">
-    <label for="week" style="font-weight:600; margin-right:8px;">Select Week:</label>
-    <select name="week" id="week" onchange="this.form.submit()" style="padding:6px 12px; border-radius:4px;">
-      {% for w in weeks %}
-        <option value="{{ w }}" {% if w == selected_week %}selected{% endif %}>{{ w }}</option>
-      {% endfor %}
-    </select>
-  </form>
-  <div style="display:flex; gap:32px; width:100%; justify-content:space-between;">
-    <div><b>Total Sent:</b> {{ latest.total_sent }}</div>
-    <div><b>Delivered:</b> {{ latest.total_delivered }}</div>
-    <div><b>Replies:</b> {{ latest.total_replies }}</div>
-    <div><b>Delivery Rate %:</b> {{ latest.avg_delivery_rate }}</div>
-    <div><b>Response Rate %:</b> {{ latest.response_rate }}</div>
+
+<div style="margin: 24px 0 16px 0; display: flex; flex-direction: column; gap: 16px;">
+  <div style="display: flex; align-items: center; gap: 16px;">
+    <form method="get" action="/dashboard" style="margin:0;">
+      <label for="week-select" style="font-weight:600; margin-right:8px;">Select Week:</label>
+      <select name="week" id="week-select" onchange="this.form.submit()" style="padding:6px 12px; border-radius:4px;">
+        {% for w in weeks %}
+          <option value="{{ w }}" {% if w == selected_week %}selected{% endif %}>{{ w }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+  <div style="display: flex; gap: 32px; width: 100%; justify-content: space-between;">
+    <div style="flex:1; min-width:120px;"><b>Total Sent (week)</b><br>{{ latest.total_sent }}</div>
+    <div style="flex:1; min-width:120px;"><b>Delivered (week)</b><br>{{ latest.total_delivered }}</div>
+    <div style="flex:1; min-width:120px;"><b>Replies (week)</b><br>{{ latest.total_replies }}</div>
+    <div style="flex:1; min-width:120px;"><b>Delivery Rate %</b><br>{{ latest.avg_delivery_rate }}</div>
+    <div style="flex:1; min-width:120px;"><b>Response Rate %</b><br>{{ latest.response_rate }}</div>
   </div>
 </div>
 
@@ -230,8 +237,10 @@ new Chart(document.getElementById('lineChart'), {
         <canvas id="leadBreakdownChart" width="160" height="160" style="max-width:160px;max-height:160px;"></canvas>
         <div style="margin-left: 24px;">
           <div style="margin-bottom: 8px;"><span style="display:inline-block;width:14px;height:14px;background:#d77b7b;border-radius:3px;margin-right:8px;"></span>Hot Leads: {{ lead_breakdown['Hot Leads'] }}</div>
+          <div style="margin-bottom: 8px;"><span style="display:inline-block;width:14px;height:14px;background:#ffe082;border-radius:3px;margin-right:8px;"></span>Warm Leads: {{ lead_breakdown['Warm Leads'] }}</div>
           <div style="margin-bottom: 8px;"><span style="display:inline-block;width:14px;height:14px;background:#8bc34a;border-radius:3px;margin-right:8px;"></span>Nurture: {{ lead_breakdown['Nurture'] }}</div>
           <div style="margin-bottom: 8px;"><span style="display:inline-block;width:14px;height:14px;background:#5c6bc0;border-radius:3px;margin-right:8px;"></span>Drips: {{ lead_breakdown['Drips'] }}</div>
+          <div style="margin-bottom: 8px;"><span style="display:inline-block;width:14px;height:14px;background:#e0e0e0;border-radius:3px;margin-right:8px;"></span>No Status: {{ lead_breakdown['No Status'] }}</div>
           <div style="margin-top:12px;font-weight:bold;">Total: {{ lead_breakdown['total'] }}</div>
         </div>
       </div>
