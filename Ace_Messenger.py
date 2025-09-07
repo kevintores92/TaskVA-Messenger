@@ -584,35 +584,7 @@ def load_kpi_rows_for_month(month):
 # ── ROUTES ────────────────────────────────────────────────────────
 
 # --- Login required decorator ---
-from functools import wraps
 
-def login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not session.get("logged_in"):
-            return redirect(url_for("login"))
-        return f(*args, **kwargs)
-    return decorated_function
-
-# --- Login route ---
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    error = None
-    if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
-        if username == "aceholdings" and password == "kevin123":
-            session["logged_in"] = True
-            return redirect(url_for("dashboard"))
-        else:
-            error = "Invalid username or password."
-    return render_template("login.html", error=error)
-
-# --- Logout route ---
-@app.route("/logout")
-def logout():
-    session.pop("logged_in", None)
-    return redirect(url_for("login"))
 
 # --- Context processor to inject TWILIO_NUMBERS into all templates ---
 @app.context_processor
@@ -639,7 +611,6 @@ ensure_drip_assignment_table()
 
 @app.route("/")
 @app.route("/dashboard", methods=["GET"])
-@login_required
 def dashboard():
     # Get week from query param, default to latest week in DB
     week = request.args.get("week")
@@ -662,7 +633,6 @@ def dashboard():
                           selected_week=week)
 
 @app.route("/inbox")
-@login_required
 def inbox():
     search = request.args.get("search", "")
     box = request.args.get("box", "inbox")
