@@ -294,10 +294,6 @@ def drip_scheduler_loop():
             print(f"[Drip Scheduler] Error: {e}")
         time.sleep(600)  # Run every 10 minutes
 
-# Start the scheduler in a background thread
-drip_thread = threading.Thread(target=drip_scheduler_loop, daemon=True)
-drip_thread.start()
-
 # --- Provide contact columns for forms ---
 def get_contact_columns():
     conn = sqlite3.connect(DB_PATH)
@@ -1631,4 +1627,6 @@ def launch_dashboard():
     flask_thread.start()
 
 if __name__ == "__main__":
+    drip_thread = threading.Thread(target=drip_scheduler_loop, daemon=True)
+    drip_thread.start()
     launch_dashboard()
