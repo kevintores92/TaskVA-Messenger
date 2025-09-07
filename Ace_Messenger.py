@@ -26,7 +26,6 @@ STATIC_DIR = os.path.join(BASE_DIR, "static")
 DB_PATH = os.path.join(BASE_DIR, "messages.db")
 LEADS_CSV_PATH = os.path.join(BASE_DIR, "Leads.csv")
 
-## ...existing code...
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
@@ -39,7 +38,7 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", "aceholdings_secret")
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 batch_status = {"sent": 0, "total": 0, "running": False}
-## ...existing code...
+
 def get_user_db():
     from flask import has_request_context
     if has_request_context():
@@ -49,12 +48,9 @@ def get_user_db():
             if os.path.exists(user_db):
                 return user_db
     return DB_PATH
-## ...existing code...
 BATCH_CSV = os.path.join(BASE_DIR, 'Batch.csv')
-## ...existing code...
 
 
-# Stop flag for batch control
 stop_batch = False
 
 TAGS = [
@@ -1436,19 +1432,7 @@ def stop_batch_route():
     global stop_batch
     stop_batch = True
     return jsonify({"stopped": True})
-@app.route("/subscribe", methods=["GET"])
-@login_required
-def subscribe():
-    username = session.get("username")
-    subscribed = is_user_subscribed(username)
-    return render_template("subscribe.html", subscribed=subscribed)
-
-@app.route("/start-subscription", methods=["POST"])
-@login_required
-def start_subscription():
-    username = session.get("username")
-    price_id = request.form.get("price_id")  # Stripe price ID
-    checkout_url = create_checkout_session(username, price_id)
+## ...existing code...
     return redirect(checkout_url)
 
 @app.route("/payment-success")
