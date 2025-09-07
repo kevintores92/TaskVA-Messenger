@@ -1,107 +1,4 @@
-# --- Subscription payment routes ---
-@app.route("/subscribe", methods=["GET"])
-@login_required
-def subscribe():
-    username = session.get("username")
-    subscribed = is_user_subscribed(username)
-    return render_template("subscribe.html", subscribed=subscribed)
-
-@app.route("/start-subscription", methods=["POST"])
-@login_required
-def start_subscription():
-    username = session.get("username")
-    price_id = request.form.get("price_id")  # Stripe price ID
-    checkout_url = create_checkout_session(username, price_id)
-    return redirect(checkout_url)
-
-@app.route("/payment-success")
-def payment_success():
-    username = request.args.get("username") or session.get("username")
-    activate_user_subscription(username)
-    return render_template("payment_success.html")
-
-# --- Twilio resources management routes ---
-@app.route("/twilio-resources", methods=["GET"])
-@login_required
-def twilio_resources():
-    username = session.get("username")
-    conn = sqlite3.connect(os.path.join(BASE_DIR, 'users.db'))
-    c = conn.cursor()
-    c.execute("SELECT twilio_sid, twilio_number FROM users WHERE username=?", (username,))
-    row = c.fetchone()
-    user = {"twilio_sid": row[0] if row else None, "twilio_number": row[1] if row else None}
-    conn.close()
-    a2p_status = get_a2p_status(username)
-    return render_template("twilio_resources.html", user=user, a2p_status=a2p_status)
-
-@app.route("/assign-number", methods=["POST"])
-@login_required
-def assign_number():
-    username = session.get("username")
-    area_code = request.form.get("area_code", "312")
-    number, err = assign_phone_number_to_subaccount(username, area_code)
-    if err:
-        return f"Error: {err}", 400
-    return redirect(url_for("twilio_resources"))
-
-@app.route("/refresh-a2p-status", methods=["POST"])
-@login_required
-def refresh_a2p_status():
-    username = session.get("username")
-    guide_a2p_registration(username)
-    return redirect(url_for("twilio_resources"))
-from subscription import create_checkout_session, activate_user_subscription, is_user_subscribed
-# --- Subscription payment routes ---
-@app.route("/subscribe", methods=["GET"])
-@login_required
-def subscribe():
-    username = session.get("username")
-    subscribed = is_user_subscribed(username)
-    return render_template("subscribe.html", subscribed=subscribed)
-
-@app.route("/start-subscription", methods=["POST"])
-@login_required
-def start_subscription():
-    username = session.get("username")
-    price_id = request.form.get("price_id")  # Stripe price ID
-    checkout_url = create_checkout_session(username, price_id)
-    return redirect(checkout_url)
-
-@app.route("/payment-success")
-def payment_success():
-    username = request.args.get("username") or session.get("username")
-    activate_user_subscription(username)
-    return render_template("payment_success.html")
-# --- Twilio resources management routes ---
-@app.route("/twilio-resources", methods=["GET"])
-@login_required
-def twilio_resources():
-    username = session.get("username")
-    conn = sqlite3.connect(os.path.join(BASE_DIR, 'users.db'))
-    c = conn.cursor()
-    c.execute("SELECT twilio_sid, twilio_number FROM users WHERE username=?", (username,))
-    row = c.fetchone()
-    user = {"twilio_sid": row[0] if row else None, "twilio_number": row[1] if row else None}
-    conn.close()
-    a2p_status = get_a2p_status(username)
-    return render_template("twilio_resources.html", user=user, a2p_status=a2p_status)
-
-@app.route("/assign-number", methods=["POST"])
-@login_required
-def assign_number():
-    username = session.get("username")
-    area_code = request.form.get("area_code", "312")
-    number, err = assign_phone_number_to_subaccount(username, area_code)
-    if err:
-        return f"Error: {err}", 400
-    return redirect(url_for("twilio_resources"))
-
-@app.route("/refresh-a2p-status", methods=["POST"])
-@login_required
-def refresh_a2p_status():
-    username = session.get("username")
-    guide_a2p_registration(username)
-    return redirect(url_for("twilio_resources"))
+from functools import wraps
 from twilio_resources import assign_phone_number_to_subaccount, get_a2p_status
 from twilio_onboarding import create_twilio_subaccount, guide_a2p_registration
 import os
@@ -121,6 +18,23 @@ from twilio.jwt.access_token.grants import VoiceGrant
 from sms_sender_core import send_sms_batch
 from user_auth import register_user, authenticate_user, get_user
 import shutil
+import webbrowser
+# ── CONFIG ─────────────────────────────────────────────────────────
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+DB_PATH = os.path.join(BASE_DIR, "messages.db")
+LEADS_CSV_PATH = os.path.join(BASE_DIR, "Leads.csv")
+
+PORT = 5000
+# KPI Dashboard config
+KPIS_DB_PATH = r"C:\Users\admin\Desktop\Ace Holdings\sms_kpis.db"
+
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
+TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
+TWILIO_NUMBERS = os.environ.get("TWILIO_NUMBERS", "").split(",")
+YOUR_PHONE = os.environ.get("YOUR_PHONE")
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 app = Flask(__name__)
@@ -147,43 +61,6 @@ LEADS_CSV_PATH = os.path.join(BASE_DIR, "Leads.csv")
 BATCH_CSV = os.path.join(BASE_DIR, 'Batch.csv')
 PORT = 5000
 KPIS_DB_PATH = r"C:\Users\admin\Desktop\Ace Holdings\sms_kpis.db"
-
-# --- Route definitions should be at the bottom of the file ---
-# ...existing code...
-from flask import Flask, request, jsonify, render_template, redirect, url_for, Response, g
-from flask_socketio import SocketIO
-from twilio.rest import Client
-from twilio.twiml.voice_response import VoiceResponse
-from datetime import datetime, timezone, timedelta
-from dateutil import parser, tz
-from sms_sender_core import send_sms_batch
-import threading
-import os, sqlite3, threading, webbrowser, time, csv
-
-
-import sqlite3
-# ── CONFIG ─────────────────────────────────────────────────────────
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
-STATIC_DIR = os.path.join(BASE_DIR, "static")
-DB_PATH = os.path.join(BASE_DIR, "messages.db")
-LEADS_CSV_PATH = os.path.join(BASE_DIR, "Leads.csv")
-
-PORT = 5000
-# KPI Dashboard config
-KPIS_DB_PATH = r"C:\Users\admin\Desktop\Ace Holdings\sms_kpis.db"
-
-
-import os
-from dotenv import load_dotenv
-load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
-TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
-TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
-TWILIO_NUMBERS = os.environ.get("TWILIO_NUMBERS", "").split(",")
-YOUR_PHONE = os.environ.get("YOUR_PHONE")
-
-
-from flask import session
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "aceholdings_secret")
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
@@ -191,68 +68,24 @@ client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 batch_status = {"sent": 0, "total": 0, "running": False}
 BASE_DIR = os.path.dirname(__file__)
 BATCH_CSV = os.path.join(BASE_DIR, 'Batch.csv')
-# ── ROUTES ────────────────────────────────────────────────────────
 
-# --- Login route ---
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    error = None
-    if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
-        if authenticate_user(username, password):
-            session["logged_in"] = True
-            session["username"] = username
-            return redirect(url_for("dashboard"))
-        else:
-            error = "Invalid username or password."
-    return render_template("login.html", error=error)
 
-# --- Registration route ---
-@app.route("/register", methods=["GET", "POST"])
-def register():
-    error = None
-    if request.method == "POST":
-        username = request.form.get("username")
-        email = request.form.get("email")
-        password = request.form.get("password")
-        success, err = register_user(username, email, password)
-        if success:
-            # Create user workspace
-            user_dir = os.path.join(BASE_DIR, "users", username)
-            os.makedirs(user_dir, exist_ok=True)
-            # Copy template files
-            template_db = os.path.join(BASE_DIR, "messages.db")
-            user_db = os.path.join(user_dir, "messages.db")
-            if os.path.exists(template_db):
-                shutil.copy(template_db, user_db)
-            # Create Twilio subaccount
-            create_twilio_subaccount(username)
-            # Start A2P onboarding
-            guide_a2p_registration(username)
-            # Assign phone number
-            assign_phone_number_to_subaccount(username)
-            return redirect(url_for("login"))
-        else:
-            error = err
-    return render_template("register.html", error=error)
-# --- Logout route ---
-@app.route("/logout")
-def logout():
-    session.pop("logged_in", None)
-    session.pop("username", None)
-    return redirect(url_for("login"))
+# Stop flag for batch control
+stop_batch = False
 
-# --- Context processor to inject TWILIO_NUMBERS into all templates ---
-@app.context_processor
-def inject_twilio_numbers():
-    return {"TWILIO_NUMBERS": TWILIO_NUMBERS}
-@app.context_processor
-def inject_user():
-    username = session.get("username")
-    a2p_status = get_a2p_status(username) if username else None
-    return {"current_user": username, "a2p_status": a2p_status}
-from functools import wraps
+TAGS = [
+    "Hot", "Nurture", "Drip", "Qualified", "Wrong Number", "Not interested", "DNC"
+]
+TAG_ICONS = {
+    "Hot": "🔥",
+    "Nurture": "🌱",
+    "Drip": "💧",
+    "Qualified": "✅",
+    "Wrong Number": "❗",
+    "Not interested": "❌",
+    "DNC": "📵",
+    "No tag": "🏷️"
+}
 
 # --- Login required decorator ---
 def login_required(f):
@@ -280,26 +113,6 @@ def ensure_drip_assignment_table():
     conn.close()
 
 ensure_drip_assignment_table()
-
-
-import threading
-import time
-# Stop flag for batch control
-stop_batch = False
-
-TAGS = [
-    "Hot", "Nurture", "Drip", "Qualified", "Wrong Number", "Not interested", "DNC"
-]
-TAG_ICONS = {
-    "Hot": "🔥",
-    "Nurture": "🌱",
-    "Drip": "💧",
-    "Qualified": "✅",
-    "Wrong Number": "❗",
-    "Not interested": "❌",
-    "DNC": "📵",
-    "No tag": "🏷️"
-}
 
 # ── HELPERS ────────────────────────────────────────────────────────
 def normalize_e164(num):
@@ -687,29 +500,6 @@ def process_message(phone, direction, body, timestamp):
 
 
 
-@app.route("/")
-@app.route("/dashboard", methods=["GET"])
-@login_required
-def dashboard():
-    # Get week from query param, default to latest week in DB
-    week = request.args.get("week")
-    weeks = get_available_weeks()
-    if not week and weeks:
-        week = weeks[-1]  # latest week
-    dates, sent, delivered, delivery_rate, replies, latest = load_kpi_rows_for_week(week)
-    lead_breakdown = get_lead_breakdown()
-    top_campaigns = get_top_campaigns()
-    return render_template("kpi_dashboard.html",
-                          dates=dates,
-                          sent=sent,
-                          delivered=delivered,
-                          delivery_rate=delivery_rate,
-                          replies=replies,
-                          latest=latest,
-                          lead_breakdown=lead_breakdown,
-                          top_campaigns=top_campaigns,
-                          weeks=weeks,
-                          selected_week=week)
 
 # Helper: get all weeks (Mon-Sun) with data in messages table
 def get_user_db():
@@ -826,6 +616,152 @@ def load_kpi_rows_for_month(month):
               "avg_reply_time": "N/A"}
     conn.close()
     return dates, sent, delivered, delivery_rate, replies, latest
+
+# === KPI Dashboard logic ===
+def get_lead_breakdown():
+    """
+    Returns a dict of tag -> count from contacts table, plus total.
+    """
+    if not os.path.exists(DB_PATH):
+        return {"Hot": 0, "Nurture": 0, "Drip": 0, "Not interested": 0, "Wrong Number": 0, "DNC": 0, "total": 0}
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    # Count inbound replies by tag
+    c.execute("""
+        SELECT contacts.tag, COUNT(messages.id)
+        FROM messages
+        JOIN contacts ON messages.phone = contacts.phone
+        WHERE messages.direction = 'inbound'
+        GROUP BY contacts.tag
+    """)
+    rows = c.fetchall()
+    tags = ["Hot", "Nurture", "Drip", "Not interested", "Wrong Number", "DNC"]
+    result = {tag: 0 for tag in tags}
+    for tag, count in rows:
+        if tag in result:
+            result[tag] = count
+    result["total"] = sum(result.values())
+    conn.close()
+    return result
+
+def load_kpi_rows(limit_days=60):
+    """
+    Loads rows from messages table in messages.db.
+    Returns arrays: dates (YYYY-MM-DD), sent, delivered, delivery_rate, replies, latest_row_dict
+    """
+    if not os.path.exists(DB_PATH):
+        return [], [], [], [], [], {"total_sent": 0, "total_delivered": 0, "total_replies": 0, "avg_reply_time": "N/A"}
+
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    # Get all message dates in the last N days
+    c.execute("SELECT MIN(date(timestamp)), MAX(date(timestamp)) FROM messages")
+    min_date, max_date = c.fetchone()
+    if not max_date:
+        return [], [], [], [], [], {"total_sent": 0, "total_delivered": 0, "total_replies": 0, "avg_reply_time": "N/A"}
+
+    # Build list of last limit_days dates
+    from datetime import datetime, timedelta
+    end_date = datetime.strptime(max_date, "%Y-%m-%d")
+    dates = [(end_date - timedelta(days=i)).strftime("%Y-%m-%d") for i in reversed(range(limit_days))]
+
+    sent, delivered, replies = [], [], []
+    for d in dates:
+        # Sent: outbound messages
+        c.execute("SELECT COUNT(*) FROM messages WHERE direction LIKE 'outbound%' AND date(timestamp)=?", (d,))
+        sent.append(c.fetchone()[0])
+        # Delivered: outbound messages with status delivered
+        c.execute("SELECT COUNT(*) FROM messages WHERE direction LIKE 'outbound%' AND status='delivered' AND date(timestamp)=?", (d,))
+        delivered.append(c.fetchone()[0])
+        # Replies: inbound messages
+        c.execute("SELECT COUNT(*) FROM messages WHERE direction='inbound' AND date(timestamp)=?", (d,))
+        replies.append(c.fetchone()[0])
+
+    delivery_rate = [round((d/s)*100,2) if s else 0 for s,d in zip(sent, delivered)]
+
+    # Latest day stats
+    latest = {"total_sent": 0, "total_delivered": 0, "total_replies": 0, "avg_reply_time": "N/A"}
+    if dates:
+        latest = {
+            "total_sent": sent[-1] if sent else 0,
+            "total_delivered": delivered[-1] if delivered else 0,
+            "total_replies": replies[-1] if replies else 0,
+            "avg_reply_time": "N/A"  # Not calculated here
+        }
+
+    conn.close()
+    return dates, sent, delivered, delivery_rate, replies, latest
+
+def get_top_campaigns(limit=3):
+    """
+    Returns a list of dicts: [{name, Hot, Nurture, Drip, Not interested, Wrong Number, DNC, total}], sorted by total leads desc.
+    """
+    if not os.path.exists(DB_PATH):
+        return []
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    # Get replies by campaign and tag
+    try:
+        c.execute("""
+            SELECT contacts.campaign, contacts.tag, COUNT(messages.id)
+            FROM messages
+            JOIN contacts ON messages.phone = contacts.phone
+            WHERE messages.direction = 'inbound'
+            GROUP BY contacts.campaign, contacts.tag
+        """)
+    except Exception:
+        try:
+            c.execute("""
+                SELECT contacts.Campaign, contacts.tag, COUNT(messages.id)
+                FROM messages
+                JOIN contacts ON messages.phone = contacts.phone
+                WHERE messages.direction = 'inbound'
+                GROUP BY contacts.Campaign, contacts.tag
+            """)
+        except Exception:
+            return []
+    rows = c.fetchall()
+    from collections import defaultdict
+    tags = ["Hot", "Nurture", "Drip", "Not interested", "Wrong Number", "DNC"]
+    camp_data = defaultdict(lambda: {tag: 0 for tag in tags})
+    for camp, tag, count in rows:
+        camp = camp or "(No Campaign)"
+        if tag in camp_data[camp]:
+            camp_data[camp][tag] += count
+    result = []
+    for camp, tag_counts in camp_data.items():
+        entry = {"name": camp}
+        entry.update(tag_counts)
+        entry["total"] = sum(tag_counts.values())
+        result.append(entry)
+    result.sort(key=lambda x: (-x["total"], x["name"]))
+    conn.close()
+    return result[:limit]
+
+
+@app.route("/")
+@app.route("/dashboard", methods=["GET"])
+@login_required
+def dashboard():
+    # Get week from query param, default to latest week in DB
+    week = request.args.get("week")
+    weeks = get_available_weeks()
+    if not week and weeks:
+        week = weeks[-1]  # latest week
+    dates, sent, delivered, delivery_rate, replies, latest = load_kpi_rows_for_week(week)
+    lead_breakdown = get_lead_breakdown()
+    top_campaigns = get_top_campaigns()
+    return render_template("kpi_dashboard.html",
+                          dates=dates,
+                          sent=sent,
+                          delivered=delivered,
+                          delivery_rate=delivery_rate,
+                          replies=replies,
+                          latest=latest,
+                          lead_breakdown=lead_breakdown,
+                          top_campaigns=top_campaigns,
+                          weeks=weeks,
+                          selected_week=week)
 
 @app.route("/inbox")
 @login_required
@@ -962,126 +898,6 @@ def drip_messages_popup(drip_id):
     conn.close()
     return render_template("drip_messages_popup.html", drip={"name": drip_name}, messages=messages)
 
-# === KPI Dashboard logic ===
-def get_lead_breakdown():
-    """
-    Returns a dict of tag -> count from contacts table, plus total.
-    """
-    if not os.path.exists(DB_PATH):
-        return {"Hot": 0, "Nurture": 0, "Drip": 0, "Not interested": 0, "Wrong Number": 0, "DNC": 0, "total": 0}
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    # Count inbound replies by tag
-    c.execute("""
-        SELECT contacts.tag, COUNT(messages.id)
-        FROM messages
-        JOIN contacts ON messages.phone = contacts.phone
-        WHERE messages.direction = 'inbound'
-        GROUP BY contacts.tag
-    """)
-    rows = c.fetchall()
-    tags = ["Hot", "Nurture", "Drip", "Not interested", "Wrong Number", "DNC"]
-    result = {tag: 0 for tag in tags}
-    for tag, count in rows:
-        if tag in result:
-            result[tag] = count
-    result["total"] = sum(result.values())
-    conn.close()
-    return result
-
-def load_kpi_rows(limit_days=60):
-    """
-    Loads rows from messages table in messages.db.
-    Returns arrays: dates (YYYY-MM-DD), sent, delivered, delivery_rate, replies, latest_row_dict
-    """
-    if not os.path.exists(DB_PATH):
-        return [], [], [], [], [], {"total_sent": 0, "total_delivered": 0, "total_replies": 0, "avg_reply_time": "N/A"}
-
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    # Get all message dates in the last N days
-    c.execute("SELECT MIN(date(timestamp)), MAX(date(timestamp)) FROM messages")
-    min_date, max_date = c.fetchone()
-    if not max_date:
-        return [], [], [], [], [], {"total_sent": 0, "total_delivered": 0, "total_replies": 0, "avg_reply_time": "N/A"}
-
-    # Build list of last limit_days dates
-    from datetime import datetime, timedelta
-    end_date = datetime.strptime(max_date, "%Y-%m-%d")
-    dates = [(end_date - timedelta(days=i)).strftime("%Y-%m-%d") for i in reversed(range(limit_days))]
-
-    sent, delivered, replies = [], [], []
-    for d in dates:
-        # Sent: outbound messages
-        c.execute("SELECT COUNT(*) FROM messages WHERE direction LIKE 'outbound%' AND date(timestamp)=?", (d,))
-        sent.append(c.fetchone()[0])
-        # Delivered: outbound messages with status delivered
-        c.execute("SELECT COUNT(*) FROM messages WHERE direction LIKE 'outbound%' AND status='delivered' AND date(timestamp)=?", (d,))
-        delivered.append(c.fetchone()[0])
-        # Replies: inbound messages
-        c.execute("SELECT COUNT(*) FROM messages WHERE direction='inbound' AND date(timestamp)=?", (d,))
-        replies.append(c.fetchone()[0])
-
-    delivery_rate = [round((d/s)*100,2) if s else 0 for s,d in zip(sent, delivered)]
-
-    # Latest day stats
-    latest = {"total_sent": 0, "total_delivered": 0, "total_replies": 0, "avg_reply_time": "N/A"}
-    if dates:
-        latest = {
-            "total_sent": sent[-1] if sent else 0,
-            "total_delivered": delivered[-1] if delivered else 0,
-            "total_replies": replies[-1] if replies else 0,
-            "avg_reply_time": "N/A"  # Not calculated here
-        }
-
-    conn.close()
-    return dates, sent, delivered, delivery_rate, replies, latest
-
-def get_top_campaigns(limit=3):
-    """
-    Returns a list of dicts: [{name, Hot, Nurture, Drip, Not interested, Wrong Number, DNC, total}], sorted by total leads desc.
-    """
-    if not os.path.exists(DB_PATH):
-        return []
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    # Get replies by campaign and tag
-    try:
-        c.execute("""
-            SELECT contacts.campaign, contacts.tag, COUNT(messages.id)
-            FROM messages
-            JOIN contacts ON messages.phone = contacts.phone
-            WHERE messages.direction = 'inbound'
-            GROUP BY contacts.campaign, contacts.tag
-        """)
-    except Exception:
-        try:
-            c.execute("""
-                SELECT contacts.Campaign, contacts.tag, COUNT(messages.id)
-                FROM messages
-                JOIN contacts ON messages.phone = contacts.phone
-                WHERE messages.direction = 'inbound'
-                GROUP BY contacts.Campaign, contacts.tag
-            """)
-        except Exception:
-            return []
-    rows = c.fetchall()
-    from collections import defaultdict
-    tags = ["Hot", "Nurture", "Drip", "Not interested", "Wrong Number", "DNC"]
-    camp_data = defaultdict(lambda: {tag: 0 for tag in tags})
-    for camp, tag, count in rows:
-        camp = camp or "(No Campaign)"
-        if tag in camp_data[camp]:
-            camp_data[camp][tag] += count
-    result = []
-    for camp, tag_counts in camp_data.items():
-        entry = {"name": camp}
-        entry.update(tag_counts)
-        entry["total"] = sum(tag_counts.values())
-        result.append(entry)
-    result.sort(key=lambda x: (-x["total"], x["name"]))
-    conn.close()
-    return result[:limit]
 
 @app.route("/reminders/new", methods=["POST"])
 def new_reminder():
@@ -1642,6 +1458,168 @@ def stop_batch_route():
     global stop_batch
     stop_batch = True
     return jsonify({"stopped": True})
+@app.route("/subscribe", methods=["GET"])
+@login_required
+def subscribe():
+    username = session.get("username")
+    subscribed = is_user_subscribed(username)
+    return render_template("subscribe.html", subscribed=subscribed)
+
+@app.route("/start-subscription", methods=["POST"])
+@login_required
+def start_subscription():
+    username = session.get("username")
+    price_id = request.form.get("price_id")  # Stripe price ID
+    checkout_url = create_checkout_session(username, price_id)
+    return redirect(checkout_url)
+
+@app.route("/payment-success")
+def payment_success():
+    username = request.args.get("username") or session.get("username")
+    activate_user_subscription(username)
+    return render_template("payment_success.html")
+
+# --- Twilio resources management routes ---
+@app.route("/twilio-resources", methods=["GET"])
+@login_required
+def twilio_resources():
+    username = session.get("username")
+    conn = sqlite3.connect(os.path.join(BASE_DIR, 'users.db'))
+    c = conn.cursor()
+    c.execute("SELECT twilio_sid, twilio_number FROM users WHERE username=?", (username,))
+    row = c.fetchone()
+    user = {"twilio_sid": row[0] if row else None, "twilio_number": row[1] if row else None}
+    conn.close()
+    a2p_status = get_a2p_status(username)
+    return render_template("twilio_resources.html", user=user, a2p_status=a2p_status)
+
+@app.route("/assign-number", methods=["POST"])
+@login_required
+def assign_number():
+    username = session.get("username")
+    area_code = request.form.get("area_code", "312")
+    number, err = assign_phone_number_to_subaccount(username, area_code)
+    if err:
+        return f"Error: {err}", 400
+    return redirect(url_for("twilio_resources"))
+
+@app.route("/refresh-a2p-status", methods=["POST"])
+@login_required
+def refresh_a2p_status():
+    username = session.get("username")
+    guide_a2p_registration(username)
+    return redirect(url_for("twilio_resources"))
+from subscription import create_checkout_session, activate_user_subscription, is_user_subscribed
+# --- Subscription payment routes ---
+@app.route("/subscribe", methods=["GET"])
+@login_required
+def subscribe():
+    username = session.get("username")
+    subscribed = is_user_subscribed(username)
+    return render_template("subscribe.html", subscribed=subscribed)
+
+@app.route("/start-subscription", methods=["POST"])
+@login_required
+def start_subscription():
+    username = session.get("username")
+    price_id = request.form.get("price_id")  # Stripe price ID
+    checkout_url = create_checkout_session(username, price_id)
+    return redirect(checkout_url)
+
+@app.route("/payment-success")
+def payment_success():
+    username = request.args.get("username") or session.get("username")
+    activate_user_subscription(username)
+    return render_template("payment_success.html")
+# --- Twilio resources management routes ---
+@app.route("/twilio-resources", methods=["GET"])
+@login_required
+def twilio_resources():
+    username = session.get("username")
+    conn = sqlite3.connect(os.path.join(BASE_DIR, 'users.db'))
+    c = conn.cursor()
+    c.execute("SELECT twilio_sid, twilio_number FROM users WHERE username=?", (username,))
+    row = c.fetchone()
+    user = {"twilio_sid": row[0] if row else None, "twilio_number": row[1] if row else None}
+    conn.close()
+    a2p_status = get_a2p_status(username)
+    return render_template("twilio_resources.html", user=user, a2p_status=a2p_status)
+
+@app.route("/assign-number", methods=["POST"])
+@login_required
+def assign_number():
+    username = session.get("username")
+    area_code = request.form.get("area_code", "312")
+    number, err = assign_phone_number_to_subaccount(username, area_code)
+    if err:
+        return f"Error: {err}", 400
+    return redirect(url_for("twilio_resources"))
+
+@app.route("/refresh-a2p-status", methods=["POST"])
+@login_required
+def refresh_a2p_status():
+    username = session.get("username")
+    guide_a2p_registration(username)
+    return redirect(url_for("twilio_resources"))
+# --- Login route ---
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    error = None
+    if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
+        if authenticate_user(username, password):
+            session["logged_in"] = True
+            session["username"] = username
+            return redirect(url_for("dashboard"))
+        else:
+            error = "Invalid username or password."
+    return render_template("login.html", error=error)
+
+# --- Registration route ---
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    error = None
+    if request.method == "POST":
+        username = request.form.get("username")
+        email = request.form.get("email")
+        password = request.form.get("password")
+        success, err = register_user(username, email, password)
+        if success:
+            # Create user workspace
+            user_dir = os.path.join(BASE_DIR, "users", username)
+            os.makedirs(user_dir, exist_ok=True)
+            # Copy template files
+            template_db = os.path.join(BASE_DIR, "messages.db")
+            user_db = os.path.join(user_dir, "messages.db")
+            if os.path.exists(template_db):
+                shutil.copy(template_db, user_db)
+            # Create Twilio subaccount
+            create_twilio_subaccount(username)
+            # Start A2P onboarding
+            guide_a2p_registration(username)
+            # Assign phone number
+            assign_phone_number_to_subaccount(username)
+            return redirect(url_for("login"))
+        else:
+            error = err
+    return render_template("register.html", error=error)
+# --- Logout route ---
+@app.route("/logout")
+def logout():
+    session.pop("logged_in", None)
+    session.pop("username", None)
+    return redirect(url_for("login"))
+
+# --- Context processor to inject TWILIO_NUMBERS into all templates ---
+@app.context_processor
+def inject_twilio_numbers():
+    return {"TWILIO_NUMBERS": TWILIO_NUMBERS}
+@app.context_processor
+def inject_user():
+    username = session.get("username")
+    a2p_status = get_a2p_status(username) if username else None
+    return {"current_user": username, "a2p_status": a2p_status}
 
 # ── SERVER LAUNCH ─────────────────────────────────────────────────
 def run_flask(): socketio.run(app, port=PORT, debug=False)
