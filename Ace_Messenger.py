@@ -9,7 +9,7 @@ import sqlite3
 from datetime import datetime, timezone, timedelta
 from dateutil import parser, tz
 from dotenv import load_dotenv
-from flask import Flask, request, jsonify, render_template, redirect, url_for, Response, g, session
+from flask import Flask, request, jsonify, render_template, redirect, url_for, Response, g, session, has_request_context
 from flask_socketio import SocketIO
 from twilio.rest import Client
 from twilio.twiml.voice_response import VoiceResponse
@@ -200,15 +200,11 @@ def log_message(phone, direction, body, status=None, timestamp=None, twilio_numb
 
     # Fallback Twilio number logic
     if not twilio_number:
-        try:
-            if request:  # Only valid inside a request context
-                if direction == 'inbound':
-                    twilio_number = request.form.get("To")
-                else:
-                    twilio_number = request.form.get("From")
-        except RuntimeError:
-            # No request context (e.g. background import)
-            pass
+        if has_request_context():
+            if direction == 'inbound':
+                twilio_number = request.form.get("To")
+            else:
+                twilio_number = request.form.get("From")
         if not twilio_number:
             twilio_number = TWILIO_NUMBERS[0]
 
