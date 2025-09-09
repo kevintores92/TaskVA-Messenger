@@ -2,46 +2,55 @@
 {% block title %}Dashboard{% endblock %}
 {% block content %}
 
-<div style="margin: 24px 0 16px 0; display: flex; flex-direction: column; gap: 16px;">
-  <div style="display: flex; align-items: center; gap: 16px;">
-    <form method="get" action="/dashboard" style="margin:0;">
-      <label for="week-select" style="font-weight:600; margin-right:8px;">Select Week:</label>
-      <select name="week" id="week-select" onchange="this.form.submit()" style="padding:6px 12px; border-radius:4px;">
-        {% for w in weeks %}
-          <option value="{{ w }}" {% if w == selected_week %}selected{% endif %}>{{ w }}</option>
-        {% endfor %}
-      </select>
-    </form>
-  </div>
-  <div style="display: flex; gap: 32px; width: 100%; justify-content: space-between;">
-    <div style="flex:1; min-width:120px;"><b>Total Sent (week)</b><br>{{ latest.total_sent }}</div>
-    <div style="flex:1; min-width:120px;"><b>Delivered (week)</b><br>{{ latest.total_delivered }}</div>
-    <div style="flex:1; min-width:120px;"><b>Replies (week)</b><br>{{ latest.total_replies }}</div>
-    <div style="flex:1; min-width:120px;"><b>Delivery Rate %</b><br>{{ latest.avg_delivery_rate }}</div>
-    <div style="flex:1; min-width:120px;"><b>Response Rate %</b><br>{{ latest.response_rate }}</div>
-  </div>
-</div>
-
-<main class="dashboard-grid-main">
+<main class="dashboard-grid-main" style="margin-left: 7%">
+  <section class="dashboard-grid-cards" style="margin: 24px 0 16px 0; display: flex; flex-direction: column; gap: 16px;">
+    <div style="display: flex; align-items: center; gap: 16px;">
+      <form method="get" action="/dashboard" style="margin:0;">
+        <label for="week-select" style="font-weight:600; margin-right:8px;">Select Week:</label>
+        <select name="week" id="week-select" onchange="this.form.submit()" style="padding:6px 12px; border-radius:4px;">
+          {% for w in weeks %}
+            <option value="{{ w }}" {% if w == selected_week %}selected{% endif %}>{{ w }}</option>
+          {% endfor %}
+        </select>
+      </form>
+    </div>
+    <div style="display: flex; gap: 32px; width: 100%; justify-content: space-between;">
+      <div style="flex:1; min-width:120px;">
+        <b>Total Sent (week)</b><br>{{ latest.total_sent }}
+      </div>
+      <div style="flex:1; min-width:120px;">
+        <b>Delivered (week)</b><br>{{ latest.total_delivered }}
+      </div>
+      <div style="flex:1; min-width:120px;">
+        <b>Delivery Rate %</b><br>{{ latest.avg_delivery_rate }}
+      </div>
+      <div style="flex:1; min-width:120px;">
+        <b>Replies (week)</b><br>{{ latest.total_replies }}
+      </div>
+      <div style="flex:1; min-width:120px;">
+        <b>Response Rate %</b><br>{{ latest.response_rate }}
+      </div>
+    </div>
+  </section>
   <section class="dashboard-grid-cards">
-      <div class="kpi-card">
-        <h3 style="margin-bottom: 8px;">Top Campaigns Breakdown</h3>
-        <div style="overflow-x:auto;">
-          <table style="width:100%;border-collapse:collapse;">
-            <thead>
-              <tr>
-                <th style="text-align:left;">Campaign</th>
-                <th style="text-align:center;">Hot</th>
-                <th style="text-align:center;">Nurture</th>
-                <th style="text-align:center;">Drip</th>
-                <th style="text-align:center;">Not interested</th>
-                <th style="text-align:center;">Wrong Number</th>
-                <th style="text-align:center;">DNC</th>
-                <th style="text-align:center;">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for camp in top_campaigns %}
+    <div class="kpi-card">
+      <h3 style="margin-bottom: 8px;">Top Campaigns Breakdown</h3>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr>
+              <th style="text-align:left;">Campaign</th>
+              <th style="text-align:center;">Hot</th>
+              <th style="text-align:center;">Nurture</th>
+              <th style="text-align:center;">Drip</th>
+              <th style="text-align:center;">Not interested</th>
+              <th style="text-align:center;">Wrong Number</th>
+              <th style="text-align:center;">DNC</th>
+              <th style="text-align:center;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for camp in top_campaigns %}
               <tr style="background:{{ loop.index0 % 2 == 1 and '#f7f8fa' or 'transparent' }};font-size:16px;">
                 <td style="padding:8px 0 8px 8px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ camp.name }}</td>
                 <td style="text-align:center;font-weight:500;">{{ camp.Hot }}</td>
@@ -52,38 +61,43 @@
                 <td style="text-align:center;font-weight:500;">{{ camp.DNC }}</td>
                 <td style="text-align:center;font-weight:500;">{{ camp.total }}</td>
               </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
     </div>
     <div class="kpi-card">
       <h3 style="margin-bottom: 8px;">Replies Breakdown by Tag</h3>
       <div style="display: flex; align-items: center;justify-content:center;">
-        <div style="margin-left: 24px;">
-          <div style="margin-bottom: 8px;"><span style="display:inline-block;width:14px;height:14px;background:#d77b7b;border-radius:3px;margin-right:8px;"></span>Hot: {{ lead_breakdown['Hot'] }}</div>
-          <div style="margin-bottom: 8px;"><span style="display:inline-block;width:14px;height:14px;background:#8bc34a;border-radius:3px;margin-right:8px;"></span>Nurture: {{ lead_breakdown['Nurture'] }}</div>
-          <div style="margin-bottom: 8px;"><span style="display:inline-block;width:14px;height:14px;background:#5c6bc0;border-radius:3px;margin-right:8px;"></span>Drip: {{ lead_breakdown['Drip'] }}</div>
-          <div style="margin-bottom: 8px;"><span style="display:inline-block;width:14px;height:14px;background:#e0e0e0;border-radius:3px;margin-right:8px;"></span>Not interested: {{ lead_breakdown['Not interested'] }}</div>
-          <div style="margin-bottom: 8px;"><span style="display:inline-block;width:14px;height:14px;background:#bdbdbd;border-radius:3px;margin-right:8px;"></span>Wrong Number: {{ lead_breakdown['Wrong Number'] }}</div>
-          <div style="margin-bottom: 8px;"><span style="display:inline-block;width:14px;height:14px;background:#bdbdbd;border-radius:3px;margin-right:8px;"></span>DNC: {{ lead_breakdown['DNC'] }}</div>
-          <div style="margin-top:12px;font-weight:bold;">Total Tagged Replies: {{ lead_breakdown['total'] }}</div>
-        </div>
-      </div>
-    </div>
-  </section>
-    <div class="kpi-card">
-      <h3 style="margin-bottom: 8px;">Lead Breakdown</h3>
-      <div style="display: flex; align-items: center;justify-content:center;">
         <canvas id="leadBreakdownChart" width="160" height="160" style="max-width:160px;max-height:160px;"></canvas>
         <div style="margin-left: 24px;">
-          <div style="margin-bottom: 8px;"><span style="display:inline-block;width:14px;height:14px;background:#d77b7b;border-radius:3px;margin-right:8px;"></span>Hot Leads: {{ lead_breakdown['Hot Leads'] }}</div>
-          <div style="margin-bottom: 8px;"><span style="display:inline-block;width:14px;height:14px;background:#ffe082;border-radius:3px;margin-right:8px;"></span>Warm Leads: {{ lead_breakdown['Warm Leads'] }}</div>
-          <div style="margin-bottom: 8px;"><span style="display:inline-block;width:14px;height:14px;background:#8bc34a;border-radius:3px;margin-right:8px;"></span>Nurture: {{ lead_breakdown['Nurture'] }}</div>
-          <div style="margin-bottom: 8px;"><span style="display:inline-block;width:14px;height:14px;background:#5c6bc0;border-radius:3px;margin-right:8px;"></span>Drips: {{ lead_breakdown['Drips'] }}</div>
-          <div style="margin-bottom: 8px;"><span style="display:inline-block;width:14px;height:14px;background:#e0e0e0;border-radius:3px;margin-right:8px;"></span>No Status: {{ lead_breakdown['No Status'] }}</div>
-          <div style="margin-top:12px;font-weight:bold;">Total: {{ lead_breakdown['total'] }}</div>
+          <div style="margin-bottom: 8px;">
+            <span style="display:inline-block;width:14px;height:14px;background:#d77b7b;border-radius:3px;margin-right:8px;"></span>
+            Hot: {{ lead_breakdown['Hot'] }}
+          </div>
+          <div style="margin-bottom: 8px;">
+            <span style="display:inline-block;width:14px;height:14px;background:#8bc34a;border-radius:3px;margin-right:8px;"></span>
+            Nurture: {{ lead_breakdown['Nurture'] }}
+          </div>
+          <div style="margin-bottom: 8px;">
+            <span style="display:inline-block;width:14px;height:14px;background:#5c6bc0;border-radius:3px;margin-right:8px;"></span>
+            Drip: {{ lead_breakdown['Drip'] }}
+          </div>
+          <div style="margin-bottom: 8px;">
+            <span style="display:inline-block;width:14px;height:14px;background:#e0e0e0;border-radius:3px;margin-right:8px;"></span>
+            Not interested: {{ lead_breakdown['Not interested'] }}
+          </div>
+          <div style="margin-bottom: 8px;">
+            <span style="display:inline-block;width:14px;height:14px;background:#bdbdbd;border-radius:3px;margin-right:8px;"></span>
+            Wrong Number: {{ lead_breakdown['Wrong Number'] }}
+          </div>
+          <div style="margin-bottom: 8px;">
+            <span style="display:inline-block;width:14px;height:14px;background:#bdbdbd;border-radius:3px;margin-right:8px;"></span>
+            DNC: {{ lead_breakdown['DNC'] }}
+          </div>
+          <div style="margin-top:12px;font-weight:bold;">
+            Total Tagged Replies: {{ lead_breakdown['total'] }}
+          </div>
         </div>
       </div>
     </div>
@@ -106,7 +120,6 @@
       <canvas id="lineChart" width="340" height="180"></canvas>
     </div>
   </section>
-  </section>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -121,25 +134,28 @@ const replies = {{ replies|tojson }};
 const leadBreakdownData = {
   labels: [
     'Hot Leads',
-    'Warm Leads',
     'Nurture',
-    'Drips',
-    'No Status'
+    'Drip',
+    'Not interested',
+    'Wrong Number',
+    'DNC'
   ],
   datasets: [{
     data: [
       {{ lead_breakdown['Hot Leads'] }},
-      {{ lead_breakdown['Warm Leads'] }},
       {{ lead_breakdown['Nurture'] }},
-      {{ lead_breakdown['Drips'] }},
-      {{ lead_breakdown['No Status'] }}
+      {{ lead_breakdown['Drip'] }},
+      {{ lead_breakdown['Not interested'] }},
+      {{ lead_breakdown['Wrong Number'] }},
+      {{ lead_breakdown['DNC'] }}
     ],
     backgroundColor: [
       '#d77b7b', // Hot
-      '#ffe082', // Warm
       '#8bc34a', // Nurture
-      '#5c6bc0', // Drips
-      '#e0e0e0'  // No Status
+      '#5c6bc0', // Drip
+      '#e0e0e0', // Not interested
+      '#e0e0e0', // Wrong Number
+      '#bdbdbd'  // DNC
     ],
     borderWidth: 1
   }]
