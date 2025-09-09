@@ -24,25 +24,38 @@
 
 <main class="dashboard-grid-main">
   <section class="dashboard-grid-cards">
-            <th style="text-align:center;">DNC</th>
-            <th style="text-align:center;">Total</th>
-          </tr>
-        </thead>
-        <tbody>
-        {% for camp in top_campaigns %}
-          <tr style="background:{{ loop.index0 % 2 == 1 and '#f7f8fa' or 'transparent' }};font-size:16px;">
-            <td style="padding:8px 0 8px 8px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ camp.name }}</td>
-            <td style="text-align:center;font-weight:500;">{{ camp.Hot }}</td>
-            <td style="text-align:center;font-weight:500;">{{ camp.Nurture }}</td>
-            <td style="text-align:center;font-weight:500;">{{ camp.Drip }}</td>
-            <td style="text-align:center;font-weight:500;">{{ camp['Not interested'] }}</td>
-            <td style="text-align:center;font-weight:500;">{{ camp['Wrong Number'] }}</td>
-            <td style="text-align:center;font-weight:500;">{{ camp.DNC }}</td>
-            <td style="text-align:center;font-weight:500;">{{ camp.total }}</td>
-          </tr>
-        {% endfor %}
-        </tbody>
-      </table>
+      <div class="kpi-card">
+        <h3 style="margin-bottom: 8px;">Top Campaigns Breakdown</h3>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr>
+                <th style="text-align:left;">Campaign</th>
+                <th style="text-align:center;">Hot</th>
+                <th style="text-align:center;">Nurture</th>
+                <th style="text-align:center;">Drip</th>
+                <th style="text-align:center;">Not interested</th>
+                <th style="text-align:center;">Wrong Number</th>
+                <th style="text-align:center;">DNC</th>
+                <th style="text-align:center;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for camp in top_campaigns %}
+              <tr style="background:{{ loop.index0 % 2 == 1 and '#f7f8fa' or 'transparent' }};font-size:16px;">
+                <td style="padding:8px 0 8px 8px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ camp.name }}</td>
+                <td style="text-align:center;font-weight:500;">{{ camp.Hot }}</td>
+                <td style="text-align:center;font-weight:500;">{{ camp.Nurture }}</td>
+                <td style="text-align:center;font-weight:500;">{{ camp.Drip }}</td>
+                <td style="text-align:center;font-weight:500;">{{ camp['Not interested'] }}</td>
+                <td style="text-align:center;font-weight:500;">{{ camp['Wrong Number'] }}</td>
+                <td style="text-align:center;font-weight:500;">{{ camp.DNC }}</td>
+                <td style="text-align:center;font-weight:500;">{{ camp.total }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
     <div class="kpi-card">
