@@ -337,6 +337,13 @@ def get_threads(search=None, tag_filters=None, box=None):
         ts_formatted = dt.strftime('%Y-%m-%d %I:%M:%S %p CST')
 
         # Build thread entry
+        # Unread logic: mark as unread if latest message is inbound and not responded/read
+        is_unread = False
+        # You may want to add logic to check if the message is responded/read
+        if latest_direction == "inbound":
+            # Example: mark as unread if notes do not contain a reply or if tag is not 'Responded'
+            # You can adjust this logic as needed
+            is_unread = True
         threads.append({
             "phone": contact_phone,
             "name": name,
@@ -347,7 +354,7 @@ def get_threads(search=None, tag_filters=None, box=None):
             "latest_direction": latest_direction,  # add this line
             "timestamp": ts_formatted,
             "twilio_number": twilio_number,
-            "unread": False
+            "unread": is_unread
         })
 
 
