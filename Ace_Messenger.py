@@ -792,23 +792,25 @@ def inbox():
     from_date = request.args.get("from")
     to_date = request.args.get("to")
     all_threads = get_threads(search=search, box=box)
-    # Filter out threads with default tag 🏷️ in inbox
+    # Default excluded tags for inbox view
+    default_excluded = {"DNC", "No tag", "Wrong Number", "Unverified", "Not interested"}
+    # If no filter is set, exclude default tags
     if box == 'inbox':
-        all_threads = [t for t in all_threads if t.get("tag") != "🏷️"]
+        if not tags_filter or tags_filter == []:
+            all_threads = [t for t in all_threads if t.get("tag") not in default_excluded]
+        else:
+            if "__ALL__" not in tags_filter:
+                if "__NO_tag__" in tags_filter:
+                    all_threads = [t for t in all_threads if not t.get("tag")]
+                else:
+                    all_threads = [t for t in all_threads if t.get("tag") in tags_filter]
+            else:
+                all_threads = [t for t in all_threads if t.get("tag") not in default_excluded]
     if box == 'unread':
         all_threads = [
             t for t in all_threads
             if not t.get("tag") and t.get("latest") and t.get("latest").strip() and "inbound" in t.get("latest_direction", "inbound")
         ]
-    if tags_filter:
-        if "__ALL__" not in tags_filter:
-            if "__NO_tag__" in tags_filter:
-                all_threads = [t for t in all_threads if not t.get("tag")]
-            else:
-                all_threads = [t for t in all_threads if t.get("tag") in tags_filter]
-        else:
-            excluded = {"DNC", "No tag", "Wrong Number", "Unverified", "Not interested"}
-            all_threads = [t for t in all_threads if t.get("tag") not in excluded]
     def parse_date(ts):
         try:
             return datetime.strptime(str(ts)[:10], "%Y-%m-%d").date()

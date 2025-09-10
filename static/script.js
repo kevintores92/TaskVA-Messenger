@@ -504,6 +504,30 @@ function reloadThreads() {
 
 const threadList = document.getElementById('thread-list');
 
+// Tags that should trigger a refresh if assigned and excluded by filter
+const defaultExcludedTags = ["DNC", "Wrong Number", "Not interested", "No tag", "Unverified"];
+
+function getCurrentTagFilter() {
+  // Get current filter tags from URL or UI
+  const urlParams = new URLSearchParams(window.location.search);
+  let tags = urlParams.getAll("tags");
+  if (!tags.length) {
+    // If no filter, default to excluding unwanted tags
+    return tags;
+  }
+  return tags;
+}
+
+function shouldRefreshOnTagAssign(newTag) {
+  const filterTags = getCurrentTagFilter();
+  // If filter is empty, default exclusions apply
+  if (!filterTags.length) {
+    return defaultExcludedTags.includes(newTag);
+  }
+  // If filter is set, refresh only if newTag is not in filter
+  return !filterTags.includes(newTag);
+}
+
 if (threadList) {
   // Event delegation for clicks inside the thread list
   threadList.addEventListener('click', (e) => {
@@ -528,6 +552,13 @@ if (threadList) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: phone, tag: newTag })
       }).then(() => {
+        // If the new tag is excluded by filter, refresh threads
+        if (shouldRefreshOnTagAssign(newTag)) {
+          reloadThreads();
+        } else {
+          // Otherwise, just update the tag chip visually
+          updateThreadtagChip(phone, newTag);
+        }
         // Optionally reload thread if open
         if (currentPhone === phone) loadThread(phone);
       });
