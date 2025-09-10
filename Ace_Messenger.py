@@ -781,10 +781,23 @@ def dashboard():
     conn.close()
     lead_breakdown = get_lead_breakdown()
     top_campaigns = get_top_campaigns()
+    # Ensure chart variables are always defined
+    dates = []
+    sent = []
+    delivered = []
+    delivery_rate = []
+    replies = []
+    # If you have a function to get these, replace with actual data
+    # Example: dates, sent, delivered, delivery_rate, replies = get_kpi_chart_data()
     return render_template("kpi_dashboard.html",
                           latest=latest,
                           lead_breakdown=lead_breakdown,
-                          top_campaigns=top_campaigns)
+                          top_campaigns=top_campaigns,
+                          dates=dates,
+                          sent=sent,
+                          delivered=delivered,
+                          delivery_rate=delivery_rate,
+                          replies=replies)
     
 # --- Twilio Client JS Token Endpoint ---
 @app.route('/token')
