@@ -55,18 +55,6 @@ BATCH_CSV = os.path.join(BASE_DIR, 'Batch.csv')
 PORT = 5000
 KPIS_DB_PATH = r"C:\Users\admin\Desktop\Ace Holdings\sms_kpis.db"
 
-
-
-app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "aceholdings_secret")
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
-client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-batch_status = {"sent": 0, "total": 0, "running": False}
-BASE_DIR = os.path.dirname(__file__)
-BATCH_CSV = os.path.join(BASE_DIR, 'Batch.csv')
-
-
-
 import threading
 import time
 # Stop flag for batch control
@@ -87,11 +75,6 @@ TAG_ICONS = {
 }
 
 # ── HELPERS ────────────────────────────────────────────────────────
-    
-@app.before_first_request
-def sync_twilio_on_startup():
-    print("[Startup] Syncing Twilio messages for last 3 days...")
-    deduplicate_and_import(lookback_days=3)
     
 def normalize_e164(num):
     s = ''.join(filter(str.isdigit, str(num)))
@@ -720,9 +703,11 @@ def get_top_campaigns(limit=3):
     conn.close()
     return result[:limit]
 
-
-# ── ROUTES ────────────────────────────────────────────────────────
-
+@app.before_first_request
+def sync_twilio_on_startup():
+    print("[Startup] Syncing Twilio messages for last 3 days...")
+    deduplicate_and_import(lookback_days=3)
+    
 # --- Context processor to inject TWILIO_NUMBERS into all templates ---
 @app.context_processor
 def inject_twilio_numbers():
@@ -745,6 +730,9 @@ def ensure_drip_assignment_table():
     conn.close()
 
 ensure_drip_assignment_table()
+
+
+# ── ROUTES ────────────────────────────────────────────────────────
 
 @app.route("/")
 @app.route("/dashboard", methods=["GET"])
