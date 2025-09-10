@@ -6,8 +6,7 @@ from flask import Flask, request, jsonify, render_template, redirect, url_for, R
 from flask_socketio import SocketIO
 from twilio.rest import Client
 from twilio.twiml.voice_response import VoiceResponse
-from twilio.jwt.access_token import AccessToken
-from twilio.jwt.access_token.grants import VoiceGrant
+from twilio.jwt.access_token import AccessToken, VoiceGrant
 from sms_sender_core import send_sms_batch
 # ── CONFIG ─────────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
