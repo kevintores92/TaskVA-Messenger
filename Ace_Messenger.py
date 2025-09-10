@@ -124,6 +124,14 @@ def remove_drip_assignment(phone):
     conn.commit()
     conn.close()
 
+def get_tag_for_message(body: str):
+    body = body.lower().strip()
+    if "stop" in body:
+        return "DNC"       # Stop always wins
+    elif "wrong" in body:
+        return "Wrong number"
+    return None
+
 def log_message(phone, direction, body, status=None, timestamp=None, twilio_number=None):
     phone = normalize_e164(phone)
 
@@ -347,9 +355,6 @@ def get_threads(search=None, tag_filters=None, box=None):
     return threads
 
 
-
-
-# === WAL mode and Twilio sync startup ===
 def deduplicate_and_import(preview_only=False, lookback_days=3):
     """
     Import recent messages from Twilio into the local DB.
@@ -444,6 +449,7 @@ def deduplicate_and_import(preview_only=False, lookback_days=3):
         print(f"[Sync Errors] {errors}")
 
 
+# --- Place this function definition after deduplicate_and_import, before startup calls ---
 def set_sqlite_wal_mode():
     try:
         conn = sqlite3.connect(DB_PATH)
@@ -455,7 +461,7 @@ def set_sqlite_wal_mode():
     except Exception as e:
         print(f"[Startup] Failed to set WAL mode: {e}")
 
-# --- Top-level startup calls: WAL mode and Twilio sync ---
+# --- Place these startup calls at the top-level, before any DB operations ---
 set_sqlite_wal_mode()
 print("[Startup] Syncing Twilio messages for last 3 days...")
 deduplicate_and_import(lookback_days=3)
@@ -464,14 +470,6 @@ def update_webhooks(public_url):
     for number in TWILIO_NUMBERS:
         incoming = client.incoming_phone_numbers.list(phone_number=number)
         if incoming: incoming[0].update(sms_url=f"{public_url}/sms-webhook", sms_method="POST")
-        
-def get_tag_for_message(body: str):
-    body = body.lower().strip()
-    if "stop" in body:
-        return "DNC"       # Stop always wins
-    elif "wrong" in body:
-        return "Wrong number"
-    return None
 
 def process_message(phone, direction, body, timestamp):
     if direction != "inbound":
@@ -485,7 +483,7 @@ def process_message(phone, direction, body, timestamp):
         # assumes your contacts table has phone + tag fields
         c.execute("UPDATE contacts SET tag=? WHERE phone=?", (tag, phone))
         conn.commit()
-        conn.close()
+        conn.close()    
 
 
 # Helper: get all weeks (Mon-Sun) with data in messages table
