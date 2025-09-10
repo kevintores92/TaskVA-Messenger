@@ -755,6 +755,7 @@ ensure_drip_assignment_table()
 
 # ── ROUTES ────────────────────────────────────────────────────────
 
+
 @app.route("/")
 @app.route("/dashboard", methods=["GET"])
 def dashboard():
@@ -782,6 +783,21 @@ def dashboard():
                           top_campaigns=top_campaigns,
                           weeks=weeks,
                           selected_week=week)
+    
+# --- Twilio Client JS Token Endpoint ---
+@app.route('/token')
+def token():
+    identity = request.args.get('identity', 'user')
+    # Create access token with credentials
+    token = AccessToken(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, os.environ.get('TWILIO_API_KEY_SID'), os.environ.get('TWILIO_API_KEY_SECRET'))
+    token.identity = identity
+    # Create a Voice grant and add to token
+    voice_grant = VoiceGrant(
+        outgoing_application_sid=os.environ.get('TWILIO_TWIML_APP_SID'),
+        incoming_allow=True
+    )
+    token.add_grant(voice_grant)
+    return jsonify(token=token.to_jwt().decode('utf-8'), identity=identity)
 
 @app.route("/inbox")
 def inbox():
