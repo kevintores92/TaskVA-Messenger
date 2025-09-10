@@ -18,8 +18,6 @@ from dateutil import parser, tz
 from sms_sender_core import send_sms_batch
 import threading
 import os, sqlite3, threading, webbrowser, time, csv
-
-
 import sqlite3
 # ── CONFIG ─────────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -31,15 +29,14 @@ LEADS_CSV_PATH = os.path.join(BASE_DIR, "Leads.csv")
 PORT = 5000
 # KPI Dashboard config
 KPIS_DB_PATH = r"C:\Users\admin\Desktop\Ace Holdings\sms_kpis.db"
-
-
-import os
-from dotenv import load_dotenv
-
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
+
+
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "aceholdings_secret")
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+
 TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
 TWILIO_NUMBERS = os.environ.get("TWILIO_NUMBERS", "").split(",")
@@ -55,8 +52,7 @@ BATCH_CSV = os.path.join(BASE_DIR, 'Batch.csv')
 PORT = 5000
 KPIS_DB_PATH = r"C:\Users\admin\Desktop\Ace Holdings\sms_kpis.db"
 
-import threading
-import time
+
 # Stop flag for batch control
 stop_batch = False
 
