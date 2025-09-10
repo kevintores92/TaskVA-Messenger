@@ -807,8 +807,21 @@ def token():
         api_key_sid = os.environ.get('TWILIO_API_KEY_SID')
         api_key_secret = os.environ.get('TWILIO_API_KEY_SECRET')
         twiml_app_sid = os.environ.get('TWILIO_TWIML_APP_SID')
-        if not all([TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, api_key_sid, api_key_secret, twiml_app_sid]):
-            raise Exception('Missing Twilio credentials or TwiML App SID.')
+        missing_vars = []
+        if not TWILIO_ACCOUNT_SID:
+            missing_vars.append('TWILIO_ACCOUNT_SID')
+        if not TWILIO_AUTH_TOKEN:
+            missing_vars.append('TWILIO_AUTH_TOKEN')
+        if not api_key_sid:
+            missing_vars.append('TWILIO_API_KEY_SID')
+        if not api_key_secret:
+            missing_vars.append('TWILIO_API_KEY_SECRET')
+        if not twiml_app_sid:
+            missing_vars.append('TWILIO_TWIML_APP_SID')
+        if missing_vars:
+            error_msg = f"Missing Twilio environment variables: {', '.join(missing_vars)}"
+            print(f"[Twilio Token Error] {error_msg}")
+            return jsonify(token=None, error=error_msg), 500
         token = AccessToken(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, api_key_sid, api_key_secret)
         token.identity = identity
         voice_grant = VoiceGrant(

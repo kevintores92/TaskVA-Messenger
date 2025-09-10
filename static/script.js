@@ -441,8 +441,25 @@ socket.on("new_message", data => {
   appendMessage(phone, body, direction, timestamp);
   updateThreadPreview(phone, body, timestamp);
 
+  // Activate unread badge for new inbound SMS
   if (direction === "inbound" && currentPhone !== phone) {
     markThreadUnread(phone);
+    // Browser notification for new inbound SMS
+    if (window.Notification && Notification.permission === "granted") {
+      new Notification("New SMS from " + phone, {
+        body: body,
+        icon: "/static/sms-icon.png"
+      });
+    } else if (window.Notification && Notification.permission !== "denied") {
+      Notification.requestPermission().then(function (permission) {
+        if (permission === "granted") {
+          new Notification("New SMS from " + phone, {
+            body: body,
+            icon: "/static/sms-icon.png"
+          });
+        }
+      });
+    }
   }
 
   bumpThreadToTop(phone);
