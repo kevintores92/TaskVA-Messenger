@@ -272,12 +272,16 @@ function addToLeadsPhone(phone) {
 
 function callContact(phone) {
   // WebRTC browser calling using Twilio Client JS
+  // Check if Twilio Client JS is loaded
+  if (!window.Twilio || !window.Twilio.Device) {
+    alert('❌ Twilio Client JS is not loaded. Please check your HTML includes the Twilio Client JS CDN.');
+    return;
+  }
   fetch('/token?identity=user')
     .then(res => res.json())
     .then(data => {
-      if (!data.token) return alert('❌ Could not get Twilio token');
-      if (!window.Twilio || !window.Twilio.Device) {
-        alert('Twilio Client JS not loaded.');
+      if (!data.token) {
+        alert('❌ Could not get Twilio token. Please check your Twilio credentials and TwiML App SID.');
         return;
       }
       if (!window.twilioDevice) {
@@ -371,10 +375,17 @@ function goToPage(pageNumber) {
     });
 }
 
-document.getElementById('tagFilterDropdown').addEventListener('change', (e) => {
-  selectedtag = e.target.value;
-  goToPage(1);
-});
+// Sidebar dialer: use browser calling via Twilio Client JS
+const dialerForm = document.getElementById('dialerForm');
+if (dialerForm) {
+  dialerForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const phoneInput = document.getElementById('dialerInput');
+    if (phoneInput && phoneInput.value) {
+      callContact(phoneInput.value.trim());
+    }
+  });
+}
 
 const socket = io();
 
@@ -644,17 +655,14 @@ function rendertagChips(selected) {
         rendertagChips(selectedtag);
         showDripAssignmentPopup(currentPhone);
       };
-    } else if (tag === 'Wrong Number') {
-      chip.textContent = tagIcons['Wrong Number'] || '❗';
-    } else if (tag === 'Not interested') {
-      chip.textContent = tagIcons['Not interested'] || '❌';
     } else {
       chip.textContent = tagIcons[tag] || "🏷️";
       chip.title = tag;
       chip.onclick = () => {
         selectedtag = tag;
         rendertagChips(selectedtag);
-        autoSaveMeta();
+        // Always update backend contacts table
+        assignTagToThread(currentPhone, selectedtag);
         updateThreadtagChip(currentPhone, selectedtag);
       };
     }

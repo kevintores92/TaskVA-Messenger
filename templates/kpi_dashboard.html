@@ -4,28 +4,19 @@
 
 <main class="dashboard-grid-main" style="margin-left: 7%">
   <section class="dashboard-grid-cards" style="margin: 24px 0 16px 0; display: flex; flex-direction: column; gap: 16px;">
-    <div style="display: flex; align-items: center; gap: 16px;">
-      <form method="get" action="/dashboard" style="margin:0;">
-        <label for="week-select" style="font-weight:600; margin-right:8px;">Select Week:</label>
-        <select name="week" id="week-select" onchange="this.form.submit()" style="padding:6px 12px; border-radius:4px;">
-          {% for w in weeks %}
-            <option value="{{ w }}" {% if w == selected_week %}selected{% endif %}>{{ w }}</option>
-          {% endfor %}
-        </select>
-      </form>
-    </div>
+  <!-- Week dropdown removed. Showing all-time stats. -->
     <div class="dashboard-grid-kpis">
       <div style="flex:1; min-width:120px;">
-        <b>Total Sent (week)</b><br>{{ latest.total_sent }}
+        <b>Total Sent (all time)</b><br>{{ latest.total_sent }}
       </div>
       <div style="flex:1; min-width:120px;">
-        <b>Delivered (week)</b><br>{{ latest.total_delivered }}
+        <b>Delivered (all time)</b><br>{{ latest.total_delivered }}
       </div>
       <div style="flex:1; min-width:120px;">
         <b>Delivery Rate %</b><br>{{ latest.avg_delivery_rate }}
       </div>
       <div style="flex:1; min-width:120px;">
-        <b>Replies (week)</b><br>{{ latest.total_replies }}
+        <b>Replies (all time)</b><br>{{ latest.total_replies }}
       </div>
       <div style="flex:1; min-width:120px;">
         <b>Response Rate %</b><br>{{ latest.response_rate }}

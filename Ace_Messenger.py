@@ -759,45 +759,54 @@ ensure_drip_assignment_table()
 @app.route("/")
 @app.route("/dashboard", methods=["GET"])
 def dashboard():
-    # Get week from query param, default to latest week in DB
-    week = request.args.get("week")
-    weeks = get_available_weeks()
-    if not week and weeks:
-        week = weeks[-1]  # latest week
-    dates, sent, delivered, delivery_rate, replies, latest = load_kpi_rows_for_week(week)
-    # Parse week range for filtering
-    if week:
-        start_str, end_str = week.split(' to ')
-        lead_breakdown = get_lead_breakdown(start_str, end_str)
-    else:
-        lead_breakdown = get_lead_breakdown()
+    # Show stats for all time (no week selection)
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) FROM messages WHERE direction LIKE 'outbound%'")
+    total_sent = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) FROM messages WHERE direction LIKE 'outbound%' AND status='delivered'")
+    total_delivered = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) FROM messages WHERE direction='inbound'")
+    total_replies = c.fetchone()[0]
+    avg_delivery_rate = round((total_delivered/total_sent)*100,2) if total_sent else 0
+    response_rate = round((total_replies/total_sent)*100,2) if total_sent else 0
+    latest = {
+        "total_sent": total_sent,
+        "total_delivered": total_delivered,
+        "total_replies": total_replies,
+        "avg_delivery_rate": avg_delivery_rate,
+        "response_rate": response_rate,
+        "avg_reply_time": "N/A"
+    }
+    conn.close()
+    lead_breakdown = get_lead_breakdown()
     top_campaigns = get_top_campaigns()
     return render_template("kpi_dashboard.html",
-                          dates=dates,
-                          sent=sent,
-                          delivered=delivered,
-                          delivery_rate=delivery_rate,
-                          replies=replies,
                           latest=latest,
                           lead_breakdown=lead_breakdown,
-                          top_campaigns=top_campaigns,
-                          weeks=weeks,
-                          selected_week=week)
+                          top_campaigns=top_campaigns)
     
 # --- Twilio Client JS Token Endpoint ---
 @app.route('/token')
 def token():
     identity = request.args.get('identity', 'user')
-    # Create access token with credentials
-    token = AccessToken(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, os.environ.get('TWILIO_API_KEY_SID'), os.environ.get('TWILIO_API_KEY_SECRET'))
-    token.identity = identity
-    # Create a Voice grant and add to token
-    voice_grant = VoiceGrant(
-        outgoing_application_sid=os.environ.get('TWILIO_TWIML_APP_SID'),
-        incoming_allow=True
-    )
-    token.add_grant(voice_grant)
-    return jsonify(token=token.to_jwt().decode('utf-8'), identity=identity)
+    try:
+        api_key_sid = os.environ.get('TWILIO_API_KEY_SID')
+        api_key_secret = os.environ.get('TWILIO_API_KEY_SECRET')
+        twiml_app_sid = os.environ.get('TWILIO_TWIML_APP_SID')
+        if not all([TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, api_key_sid, api_key_secret, twiml_app_sid]):
+            raise Exception('Missing Twilio credentials or TwiML App SID.')
+        token = AccessToken(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, api_key_sid, api_key_secret)
+        token.identity = identity
+        voice_grant = VoiceGrant(
+            outgoing_application_sid=twiml_app_sid,
+            incoming_allow=True
+        )
+        token.add_grant(voice_grant)
+        return jsonify(token=token.to_jwt().decode('utf-8'), identity=identity)
+    except Exception as e:
+        print(f"[Twilio Token Error] {e}")
+        return jsonify(token=None, error=str(e)), 500
 
 @app.route("/inbox")
 def inbox():
