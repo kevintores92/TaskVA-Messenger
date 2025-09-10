@@ -1,7 +1,3 @@
-@app.before_first_request
-def sync_twilio_on_startup():
-    print("[Startup] Syncing Twilio messages for last 3 days...")
-    deduplicate_and_import(lookback_days=3)
 import os
 import csv
 import threading
@@ -91,6 +87,12 @@ TAG_ICONS = {
 }
 
 # ── HELPERS ────────────────────────────────────────────────────────
+    
+@app.before_first_request
+def sync_twilio_on_startup():
+    print("[Startup] Syncing Twilio messages for last 3 days...")
+    deduplicate_and_import(lookback_days=3)
+    
 def normalize_e164(num):
     s = ''.join(filter(str.isdigit, str(num)))
     if s.startswith('1') and len(s) == 11:
@@ -392,7 +394,7 @@ def get_threads(search=None, tag_filters=None, box=None):
 from dateutil import parser, tz
 import sqlite3
 
-def deduplicate_and_import(preview_only=False, lookback_days=1):
+def deduplicate_and_import(preview_only=False, lookback_days=3):
     """
     Import recent messages from Twilio into the local DB.
     Uses a sliding window to ensure no outbound-api messages are skipped.
@@ -446,6 +448,7 @@ def deduplicate_and_import(preview_only=False, lookback_days=1):
 
     print(f"[Sync] Imported {len(twilio_msgs)} new messages from Twilio (checked {total_msgs}).")
 
+    
 def update_webhooks(public_url):
     for number in TWILIO_NUMBERS:
         incoming = client.incoming_phone_numbers.list(phone_number=number)
