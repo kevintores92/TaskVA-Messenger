@@ -492,6 +492,14 @@ def get_available_weeks():
         label = f"{cur.strftime('%Y-%m-%d')} to {end.strftime('%Y-%m-%d')}"
         weeks.append(label)
         cur += timedelta(days=7)
+    # Always include current week (Monday-Sunday)
+    from datetime import date
+    today = date.today()
+    current_monday = today - timedelta(days=today.weekday())
+    current_sunday = current_monday + timedelta(days=6)
+    current_label = f"{current_monday.strftime('%Y-%m-%d')} to {current_sunday.strftime('%Y-%m-%d')}"
+    if current_label not in weeks:
+        weeks.append(current_label)
     conn.close()
     return weeks
 
