@@ -37,6 +37,15 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "aceholdings_secret")
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
+# Twilio sync on first request for deployed environments (Flask 3.x workaround)
+_twilio_sync_done = False
+@app.before_request
+def sync_twilio_on_first_request():
+    global _twilio_sync_done
+    if not _twilio_sync_done:
+        print("[Startup] Syncing Twilio messages for last 3 days...")
+        deduplicate_and_import(lookback_days=3)
+        _twilio_sync_done = True
 TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
 TWILIO_NUMBERS = os.environ.get("TWILIO_NUMBERS", "").split(",")
@@ -698,11 +707,6 @@ def get_top_campaigns(limit=3):
     result.sort(key=lambda x: (-x["total"], x["name"]))
     conn.close()
     return result[:limit]
-
-@app.before_first_request
-def sync_twilio_on_startup():
-    print("[Startup] Syncing Twilio messages for last 3 days...")
-    deduplicate_and_import(lookback_days=3)
     
 # --- Context processor to inject TWILIO_NUMBERS into all templates ---
 @app.context_processor
