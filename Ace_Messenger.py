@@ -359,47 +359,86 @@ def deduplicate_and_import(preview_only=False, lookback_days=3):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("SELECT phone, direction, body, timestamp FROM messages")
-    db_msgs = set((row[0], row[1], row[2], str(row[3])) for row in c.fetchall())
+    db_msgs = set()
+    for row in c.fetchall():
+        # Ensure timestamp format consistency
+        phone, direction, body, ts = row[0], row[1], row[2], str(row[3])
+        try:
+            ts_norm = parser.parse(ts).strftime('%Y-%m-%d %H:%M:%S')
+        except Exception:
+            ts_norm = ts
+        db_msgs.add((phone, direction, body, ts_norm))
     conn.close()
 
-    # Step 2: Sliding window - fetch last N days
+    # Step 2: Sliding window - fetch last N days (default 7, configurable)
+    lookback_days = max(lookback_days, 7)  # Extend lookback to at least 7 days
     since_dt = datetime.utcnow() - timedelta(days=lookback_days)
-    fetch_kwargs = {"limit": 1000, "date_sent_after": since_dt.isoformat() + "Z"}
+    fetch_kwargs = {"limit": 5000, "date_sent_after": since_dt.isoformat() + "Z"}
 
     twilio_msgs = []
     total_msgs = 0
+    errors = []
 
-    for msg in client.messages.list(**fetch_kwargs):
-        direction = msg.direction  # Twilio gives 'inbound', 'outbound-api', 'outbound-reply'
+    def safe_parse_ts(dt):
+        try:
+            return parser.parse(dt.isoformat()).astimezone(to_zone).strftime('%Y-%m-%d %H:%M:%S')
+        except Exception as e:
+            errors.append(f"TS parse error: {dt} {e}")
+            return str(dt)
+
+    # Step 2b: Retry logic for Twilio API failures
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            twilio_list = list(client.messages.list(**fetch_kwargs))
+            break
+        except Exception as e:
+            errors.append(f"Twilio API error (attempt {attempt+1}): {e}")
+            time.sleep(2)
+    else:
+        print(f"[Twilio Sync] Failed to fetch messages after {max_retries} attempts.")
+        return
+
+    for msg in twilio_list:
+        direction = msg.direction
         phone = msg.from_ if direction == "inbound" else msg.to
         twilio_number = msg.to if direction == "inbound" else msg.from_
         body = msg.body
-        ts = parser.parse(msg.date_sent.isoformat()).astimezone(to_zone).strftime('%Y-%m-%d %H:%M:%S') if msg.date_sent else ""
+        ts = safe_parse_ts(msg.date_sent) if msg.date_sent else ""
         status = msg.status
-        sid = msg.sid  # unique Twilio message ID
 
-        # Dedup check: use sid if available, else fallback on (phone, direction, body, ts)
         key = (phone, direction, body, ts)
         if key not in db_msgs:
             twilio_msgs.append((phone, direction, body, ts, status, twilio_number))
+        else:
+            # Edge case logging for missed/duplicate
+            if preview_only:
+                print(f"[Dedup] Skipped existing: {key}")
         total_msgs += 1
 
     if preview_only:
         print(f"[Preview] Found {len(twilio_msgs)} new of {total_msgs} fetched.")
+        if errors:
+            print(f"[Preview Errors] {errors}")
         return
 
     # Step 3: Insert new messages
     for phone, direction, body, timestamp, status, twilio_number in twilio_msgs:
-        log_message(
-            phone=phone,
-            direction=direction,
-            body=body,
-            status=status,
-            timestamp=timestamp,
-            twilio_number=twilio_number
-        )
+        try:
+            log_message(
+                phone=phone,
+                direction=direction,
+                body=body,
+                status=status,
+                timestamp=timestamp,
+                twilio_number=twilio_number
+            )
+        except Exception as e:
+            errors.append(f"DB insert error: {phone}, {direction}, {body[:30]}... {e}")
 
     print(f"[Sync] Imported {len(twilio_msgs)} new messages from Twilio (checked {total_msgs}).")
+    if errors:
+        print(f"[Sync Errors] {errors}")
 
 def run_twilio_sync_background():
     def sync():
