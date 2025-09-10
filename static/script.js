@@ -542,7 +542,6 @@ function shouldRefreshOnTagAssign(newTag) {
 if (threadList) {
   // Event delegation for clicks inside the thread list
   threadList.addEventListener('click', (e) => {
-
     // 1️⃣ Clicked a tag-option icon
     const option = e.target.closest('.tag-option');
     if (option) {
@@ -551,18 +550,16 @@ if (threadList) {
       const newTag = option.dataset.tag;
       const phone = chip.dataset.phone;
 
-      // If Drip, trigger drip assignment popup
-      if (newTag === 'Drip') {
-        showDripAssignmentPopup(phone);
-        return;
-      }
-
       // Update backend (AJAX)
       fetch('/update-meta', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: phone, tag: newTag })
       }).then(() => {
+        // If Drip, trigger drip assignment popup (after backend update)
+        if (newTag === 'Drip') {
+          showDripAssignmentPopup(phone);
+        }
         // If the new tag is excluded by filter, refresh threads
         if (shouldRefreshOnTagAssign(newTag)) {
           reloadThreads();
