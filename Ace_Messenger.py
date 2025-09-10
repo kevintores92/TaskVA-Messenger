@@ -13,7 +13,7 @@ from sms_sender_core import send_sms_batch
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
-DB_PATH = os.path.join(BASE_DIR, "messages.db")
+DB_PATH = os.path.abspath(os.path.join(BASE_DIR, "messages.db"))
 LEADS_CSV_PATH = os.path.join(BASE_DIR, "Leads.csv")
 TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
@@ -167,6 +167,7 @@ def log_message(phone, direction, body, status=None, timestamp=None, twilio_numb
         )
         conn.commit()
         print(f"[DB] Inserted message: {phone=} {direction=} {body[:50]!r} {timestamp=} {status=} {twilio_number=}")
+        print(f"[DB] Path: {DB_PATH}")
     else:
         print(f"[DB] Skipped duplicate: {phone=} {direction=} {body[:50]!r}")
 
@@ -261,7 +262,7 @@ def get_conversation(phone):
     conn.close()
     return convo
 
-def get_threads(search=None, tag_filters=None, box=None):
+def get_threads(search=None, tag_filters=None, box=None, page=1, page_size=50):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("CREATE INDEX IF NOT EXISTS idx_messages_phone ON messages(phone)")
@@ -271,7 +272,8 @@ def get_threads(search=None, tag_filters=None, box=None):
     if not box:
         box = 'all'
 
-    c.execute("SELECT phone, MAX(timestamp) as latest_time FROM messages GROUP BY phone ORDER BY latest_time DESC")
+    offset = (page - 1) * page_size
+    c.execute("SELECT phone, MAX(timestamp) as latest_time FROM messages GROUP BY phone ORDER BY latest_time DESC LIMIT ? OFFSET ?", (page_size, offset))
     phones = c.fetchall()
     threads = []
 
@@ -849,7 +851,14 @@ def inbox():
     selected_phone = request.args.get("selected")
     from_date = request.args.get("from")
     to_date = request.args.get("to")
-    all_threads = get_threads(search=search, box=box)
+    try:
+        page = int(request.args.get("page", 1))
+        if page < 1:
+            page = 1
+    except Exception:
+        page = 1
+    page_size = 50
+    all_threads = get_threads(search=search, box=box, page=page, page_size=page_size)
     # Default excluded tags for inbox view
     default_excluded = {"DNC", "No tag", "Wrong Number", "Unverified", "Not interested"}
     # If no filter is set, exclude default tags
@@ -887,6 +896,12 @@ def inbox():
             if parse_date(t.get("timestamp")) and parse_date(t["timestamp"]) <= to_d
         ]
     threads = all_threads  
+    # For pagination controls, get total thread count
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT COUNT(DISTINCT phone) FROM messages")
+    total_threads_count = c.fetchone()[0]
+    conn.close()
     unread_count = len([t for t in all_threads if t.get("latest_direction") == "inbound" and not t.get("read")])
     unanswered_count = len([t for t in all_threads if t.get("latest_direction") == "inbound" and not t.get("responded")])
     reminders_count = 0  # later query reminders table
@@ -897,7 +912,9 @@ def inbox():
         search=search,
         box=box,
         selected_phone=selected_phone,
-        total_threads=len(all_threads),
+        total_threads=total_threads_count,
+        page=page,
+        page_size=page_size,
         tags=TAGS,
         tag_icons=TAG_ICONS,
         TWILIO_NUMBERS=TWILIO_NUMBERS,

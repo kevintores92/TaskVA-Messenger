@@ -65,6 +65,16 @@
     <div id="thread-list-inner">
       {% include "_threads.html" %}
     </div>
+    <!-- Pagination Controls -->
+    <div class="pagination-controls" style="text-align:center; margin:10px 0;">
+      {% if page > 1 %}
+        <a href="?box={{ box }}&page={{ page-1 }}" class="btn btn-sm">&laquo; Prev</a>
+      {% endif %}
+      <span>Page {{ page }} of {{ (total_threads // page_size) + (1 if total_threads % page_size else 0) }}</span>
+      {% if page * page_size < total_threads %}
+        <a href="?box={{ box }}&page={{ page+1 }}" class="btn btn-sm">Next &raquo;</a>
+      {% endif %}
+    </div>
   </div>
 
   <!-- CENTER PANEL -->
