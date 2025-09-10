@@ -37,15 +37,17 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "aceholdings_secret")
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
-# Twilio sync on first request for deployed environments (Flask 3.x workaround)
-_twilio_sync_done = False
-@app.before_request
-def sync_twilio_on_first_request():
-    global _twilio_sync_done
-    if not _twilio_sync_done:
+def run_twilio_sync_background():
+    def sync():
         print("[Startup] Syncing Twilio messages for last 3 days...")
-        deduplicate_and_import(lookback_days=3)
-        _twilio_sync_done = True
+        try:
+            deduplicate_and_import(lookback_days=3)
+        except Exception as e:
+            print(f"[Twilio Sync Error] {e}")
+    threading.Thread(target=sync, daemon=True).start()
+
+# Start Twilio sync in background at startup
+run_twilio_sync_background()
 TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
 TWILIO_NUMBERS = os.environ.get("TWILIO_NUMBERS", "").split(",")
