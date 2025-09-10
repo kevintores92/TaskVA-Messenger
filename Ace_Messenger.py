@@ -768,6 +768,9 @@ def inbox():
     from_date = request.args.get("from")
     to_date = request.args.get("to")
     all_threads = get_threads(search=search, box=box)
+    # Filter out threads with default tag 🏷️ in inbox
+    if box == 'inbox':
+        all_threads = [t for t in all_threads if t.get("tag") != "🏷️"]
     if box == 'unread':
         all_threads = [
             t for t in all_threads

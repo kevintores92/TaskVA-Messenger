@@ -35,6 +35,7 @@
         <span id="clear-search" class="clear-btn">&times;</span>
       </div>
       <span id="threadCount">{{ threads|length }} msgs</span>
+      {% if box != 'inbox' %}
       <span class="mission-control-header">
       <ul class="mission-control">
         <li onclick="setBoxFilter('unread')" title="Unread">
@@ -58,6 +59,7 @@
     <div style="text-align:right; margin:10px 20px 0 0;">
       <a href="/logout" style="color:#007bff; font-weight:bold; text-decoration:none;">Logout</a>
     </div>
+      {% endif %}
     </div>
     <!-- Threads List -->
     <div id="thread-list-inner">
