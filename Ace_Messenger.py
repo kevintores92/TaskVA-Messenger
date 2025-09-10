@@ -347,6 +347,9 @@ def get_threads(search=None, tag_filters=None, box=None):
     return threads
 
 
+
+
+# === WAL mode and Twilio sync startup ===
 def deduplicate_and_import(preview_only=False, lookback_days=3):
     """
     Import recent messages from Twilio into the local DB.
@@ -370,8 +373,8 @@ def deduplicate_and_import(preview_only=False, lookback_days=3):
         db_msgs.add((phone, direction, body, ts_norm))
     conn.close()
 
-    # Step 2: Sliding window - fetch last N days (default 7, configurable)
-    lookback_days = max(lookback_days, 7)  # Extend lookback to at least 7 days
+    # Step 2: Sliding window - fetch last N days (default 3, configurable)
+    lookback_days = max(lookback_days, 3)  # Extend lookback to at least 3 days
     since_dt = datetime.utcnow() - timedelta(days=lookback_days)
     fetch_kwargs = {"limit": 5000, "date_sent_after": since_dt.isoformat() + "Z"}
 
@@ -440,17 +443,22 @@ def deduplicate_and_import(preview_only=False, lookback_days=3):
     if errors:
         print(f"[Sync Errors] {errors}")
 
-def run_twilio_sync_background():
-    def sync():
-        print("[Startup] Syncing Twilio messages for last 3 days...")
-        try:
-            deduplicate_and_import(lookback_days=3)
-        except Exception as e:
-            print(f"[Twilio Sync Error] {e}")
-    threading.Thread(target=sync, daemon=True).start()
 
-# Start Twilio sync in background at startup
-run_twilio_sync_background()
+def set_sqlite_wal_mode():
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("PRAGMA journal_mode=WAL;")
+        conn.commit()
+        conn.close()
+        print("[Startup] SQLite set to WAL mode for concurrency.")
+    except Exception as e:
+        print(f"[Startup] Failed to set WAL mode: {e}")
+
+# --- Top-level startup calls: WAL mode and Twilio sync ---
+set_sqlite_wal_mode()
+print("[Startup] Syncing Twilio messages for last 3 days...")
+deduplicate_and_import(lookback_days=3)
 
 def update_webhooks(public_url):
     for number in TWILIO_NUMBERS:
