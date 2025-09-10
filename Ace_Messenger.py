@@ -1,3 +1,7 @@
+@app.before_first_request
+def sync_twilio_on_startup():
+    print("[Startup] Syncing Twilio messages for last 3 days...")
+    deduplicate_and_import(lookback_days=3)
 import os
 import csv
 import threading
