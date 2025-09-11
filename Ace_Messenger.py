@@ -1,3 +1,49 @@
+def get_kpi_chart_data():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    # Last 7 days
+    c.execute("""
+        SELECT strftime('%Y-%m-%d', timestamp) as day,
+               COUNT(CASE WHEN direction LIKE 'outbound%' THEN 1 END) as sent,
+               COUNT(CASE WHEN direction LIKE 'outbound%' AND status='delivered' THEN 1 END) as delivered,
+               COUNT(CASE WHEN direction='inbound' THEN 1 END) as replies
+        FROM messages
+        WHERE timestamp >= date('now', '-6 days')
+        GROUP BY day
+        ORDER BY day ASC
+    """)
+    week_rows = c.fetchall()
+    week_dates = [r[0] for r in week_rows]
+    week_sent = [r[1] for r in week_rows]
+    week_delivered = [r[2] for r in week_rows]
+    week_replies = [r[3] for r in week_rows]
+    week_delivery_rate = [round((r[2]/r[1])*100,2) if r[1] else 0 for r in week_rows]
+
+    # Last 30 days (Sent/Replies)
+    c.execute("""
+        SELECT strftime('%Y-%m-%d', timestamp) as day,
+               COUNT(CASE WHEN direction LIKE 'outbound%' THEN 1 END) as sent,
+               COUNT(CASE WHEN direction='inbound' THEN 1 END) as replies
+        FROM messages
+        WHERE timestamp >= date('now', '-29 days')
+        GROUP BY day
+        ORDER BY day ASC
+    """)
+    month_rows = c.fetchall()
+    month_dates = [r[0] for r in month_rows]
+    month_sent = [r[1] for r in month_rows]
+    month_replies = [r[2] for r in month_rows]
+    conn.close()
+    return {
+        'week_dates': week_dates,
+        'week_sent': week_sent,
+        'week_delivered': week_delivered,
+        'week_delivery_rate': week_delivery_rate,
+        'week_replies': week_replies,
+        'month_dates': month_dates,
+        'month_sent': month_sent,
+        'month_replies': month_replies
+    }
 # TEST CHANGE: Deployment marker - 2025-09-11
 import os, sqlite3, threading, webbrowser, time, csv, io
 from datetime import datetime, timezone, timedelta
@@ -961,26 +1007,20 @@ def dashboard():
     conn.close()
     lead_breakdown = get_lead_breakdown()
     top_campaigns = get_top_campaigns()
-    # Ensure chart variables are always defined
-    dates = []
-    sent = []
-    delivered = []
-    delivery_rate = []
-    replies = []
-    # If you have a function to get these, replace with actual data
-    # Example: dates, sent, delivered, delivery_rate, replies = get_kpi_chart_data()
-
-
+    kpi_data = get_kpi_chart_data()
     return render_template(
         "kpi_dashboard.html",
         latest=latest,
         lead_breakdown=lead_breakdown,
         top_campaigns=top_campaigns,
-        dates=dates,
-        sent=sent,
-        delivered=delivered,
-        delivery_rate=delivery_rate,
-        replies=replies
+        dates=kpi_data['week_dates'],
+        sent=kpi_data['week_sent'],
+        delivered=kpi_data['week_delivered'],
+        delivery_rate=kpi_data['week_delivery_rate'],
+        replies=kpi_data['week_replies'],
+        month_dates=kpi_data['month_dates'],
+        month_sent=kpi_data['month_sent'],
+        month_replies=kpi_data['month_replies']
     )
     
 
