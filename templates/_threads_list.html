@@ -19,7 +19,7 @@
               {% set drip_name = thread.tag[7:] %}
             {% endif %}
             {% for thread in threads %}
-              <div class="thread card" id="thread-{{ thread.phone|replace('+','plus') }}" onclick="loadThread('{{ thread.phone }}')" onmouseover="showThreadActions(this)" onmouseout="hideThreadActions(this)">
+          <div class="thread card thread-{{ thread.phone|replace('+','plus') }}" id="thread-{{ thread.phone|replace('+','plus') }}" onclick="loadThread('{{ thread.phone }}')" onmouseover="showThreadActions(this)" onmouseout="hideThreadActions(this)">
                 <div class="thread-info">
                   <div class="thread-name" style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
                     <div>

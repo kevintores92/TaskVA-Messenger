@@ -1,4 +1,7 @@
+
 function showThreadActions(threadDiv) {
+  // Only affect the hovered thread
+  threadDiv.classList.add('thread-hover');
   const actions = threadDiv.querySelector('.thread-actions');
   if (actions) {
     const callBtn = actions.querySelector('.call-btn');
@@ -6,11 +9,12 @@ function showThreadActions(threadDiv) {
     const timestamp = actions.querySelector('.thread-time');
     if (callBtn) callBtn.style.display = 'inline-block';
     if (readBtn) readBtn.style.display = 'inline-block';
-    if (timestamp) timestamp.style.visibility = 'hidden'; // or 'visible' if you want to keep it
+    if (timestamp) timestamp.style.visibility = 'hidden';
   }
 }
 
 function hideThreadActions(threadDiv) {
+  threadDiv.classList.remove('thread-hover');
   const actions = threadDiv.querySelector('.thread-actions');
   if (actions) {
     const callBtn = actions.querySelector('.call-btn');
@@ -20,6 +24,46 @@ function hideThreadActions(threadDiv) {
     if (readBtn) readBtn.style.display = 'none';
     if (timestamp) timestamp.style.visibility = 'visible';
   }
+}
+
+function loadThread(phone) {
+  // Fetch conversation and update center/right panels
+  fetch(`/api/thread/${phone}`)
+    .then(res => res.json())
+    .then(data => {
+      // Update center panel
+      const messagesDiv = document.getElementById('messages');
+      if (messagesDiv && data.messages) {
+        messagesDiv.innerHTML = data.messages.map(msg => `
+          <div class="message ${msg.inbound ? 'inbound' : 'outbound'}">
+            <div class="message-content">
+              <div class="bubble">${msg.text}</div>
+              <div class="message-meta">
+                <div class="timestamp">${msg.timestamp}</div>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      }
+      // Update right panel (contact-extra, notes, etc.)
+      if (data.contact_extra) {
+        const contactExtraDiv = document.getElementById('contact-extra');
+        if (contactExtraDiv) contactExtraDiv.innerHTML = data.contact_extra;
+      }
+      if (data.notes) {
+        const notesDiv = document.getElementById('notes');
+        if (notesDiv) notesDiv.value = data.notes;
+      }
+      // Update contact name
+      if (data.contact_name) {
+        const contactNameSpan = document.getElementById('contact-name');
+        if (contactNameSpan) contactNameSpan.textContent = data.contact_name;
+      }
+      if (data.thread_label) {
+        const threadLabel = document.getElementById('contact-thread-label');
+        if (threadLabel) threadLabel.textContent = data.thread_label;
+      }
+    });
 }
 
 function callContact(phone) {
