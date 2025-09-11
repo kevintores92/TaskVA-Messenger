@@ -1,4 +1,4 @@
-import os, sqlite3, threading, webbrowser, time, csv
+import os, sqlite3, threading, webbrowser, time, csv, io
 from datetime import datetime, timezone, timedelta
 from dateutil import parser, tz
 from dotenv import load_dotenv
@@ -9,6 +9,7 @@ from twilio.twiml.voice_response import VoiceResponse
 from twilio.jwt.access_token import AccessToken
 from twilio.jwt.access_token.grants import VoiceGrant
 from sms_sender_core import send_sms_batch
+from werkzeug.utils import secure_filename
 # ── CONFIG ─────────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
@@ -24,6 +25,7 @@ BATCH_CSV = os.path.join(BASE_DIR, 'Batch.csv')
 PORT = 5000
 KPIS_DB_PATH = r"C:\Users\admin\Desktop\Ace Holdings\sms_kpis.db"
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
+ALLOWED_EXTENSIONS = {"csv"}
 
 
 app = Flask(__name__)
@@ -759,10 +761,178 @@ def ensure_drip_assignment_table():
     conn.commit()
     conn.close()
 
+# --- MIGRATION: Ensure new tables for Properties feature ---
+def ensure_properties_tables():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    # Properties table
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS properties (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            address TEXT NOT NULL,
+            unit TEXT,
+            city TEXT,
+            state TEXT,
+            zip TEXT,
+            UNIQUE(address, unit, city, state, zip)
+        )
+    ''')
+    # Contacts table
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS contacts_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            first_name TEXT,
+            last_name TEXT,
+            type TEXT
+        )
+    ''')
+    # Phones table
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS phones (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            phone TEXT UNIQUE
+        )
+    ''')
+    # property_contacts (many-to-many)
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS property_contacts (
+            property_id INTEGER,
+            contact_id INTEGER,
+            role TEXT,
+            PRIMARY KEY(property_id, contact_id, role),
+            FOREIGN KEY(property_id) REFERENCES properties(id),
+            FOREIGN KEY(contact_id) REFERENCES contacts_new(id)
+        )
+    ''')
+    # contact_phones (many-to-many)
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS contact_phones (
+            contact_id INTEGER,
+            phone_id INTEGER,
+            PRIMARY KEY(contact_id, phone_id),
+            FOREIGN KEY(contact_id) REFERENCES contacts_new(id),
+            FOREIGN KEY(phone_id) REFERENCES phones(id)
+        )
+    ''')
+    # property_activity_log
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS property_activity_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            property_id INTEGER,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            activity_type TEXT,
+            details TEXT,
+            user TEXT,
+            FOREIGN KEY(property_id) REFERENCES properties(id)
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+ensure_properties_tables()
+
 ensure_drip_assignment_table()
 
+def allowed_file(filename):
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # ── ROUTES ────────────────────────────────────────────────────────
+
+# --- Direct Import/List Page ---
+@app.route("/direct-import", methods=["GET"])
+def direct_import():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT id, name, created_at, total_rows FROM campaigns ORDER BY created_at DESC")
+    campaigns = [
+        {
+            "id": r[0],
+            "name": r[1],
+            "created_at": r[2],
+            "total_rows": r[3],
+        }
+        for r in c.fetchall()
+    ]
+    conn.close()
+    return render_template("direct_import.html", campaigns=campaigns)
+
+# --- View Campaign Details ---
+@app.route("/campaign/<int:campaign_id>", methods=["GET"])
+def view_campaign(campaign_id):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT name FROM campaigns WHERE id=?", (campaign_id,))
+    row = c.fetchone()
+    if not row:
+        conn.close()
+        return "Campaign not found", 404
+    campaign_name = row[0]
+    # Get all rows for this campaign
+    c.execute("SELECT id FROM campaign_rows WHERE campaign_id=?", (campaign_id,))
+    row_ids = [r[0] for r in c.fetchall()]
+    # For each row, get key-value data
+    rows = []
+    for rid in row_ids:
+        c.execute("SELECT key, value FROM campaign_row_data WHERE row_id=?", (rid,))
+        data = {k: v for k, v in c.fetchall()}
+        rows.append(data)
+    conn.close()
+    # Get all unique keys for table headers
+    all_keys = set()
+    for r in rows:
+        all_keys.update(r.keys())
+    headers = sorted(all_keys)
+    return render_template("campaign_details.html", campaign_name=campaign_name, headers=headers, rows=rows)
+
+# --- Download Campaign as CSV ---
+@app.route("/campaign/<int:campaign_id>/download", methods=["GET"])
+def download_campaign(campaign_id):
+    import csv
+    from io import StringIO
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT name FROM campaigns WHERE id=?", (campaign_id,))
+    row = c.fetchone()
+    if not row:
+        conn.close()
+        return "Campaign not found", 404
+    campaign_name = row[0]
+    c.execute("SELECT id FROM campaign_rows WHERE campaign_id=?", (campaign_id,))
+    row_ids = [r[0] for r in c.fetchall()]
+    rows = []
+    for rid in row_ids:
+        c.execute("SELECT key, value FROM campaign_row_data WHERE row_id=?", (rid,))
+        data = {k: v for k, v in c.fetchall()}
+        rows.append(data)
+    conn.close()
+    all_keys = set()
+    for r in rows:
+        all_keys.update(r.keys())
+    headers = sorted(all_keys)
+    si = StringIO()
+    writer = csv.DictWriter(si, fieldnames=headers)
+    writer.writeheader()
+    for r in rows:
+        writer.writerow(r)
+    output = si.getvalue()
+    return Response(output, mimetype="text/csv", headers={"Content-Disposition": f"attachment;filename={campaign_name}.csv"})
+
+# --- Delete Campaign ---
+@app.route("/campaign/<int:campaign_id>/delete", methods=["POST"])
+def delete_campaign(campaign_id):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    # Delete all campaign data
+    c.execute("SELECT id FROM campaign_rows WHERE campaign_id=?", (campaign_id,))
+    row_ids = [r[0] for r in c.fetchall()]
+    for rid in row_ids:
+        c.execute("DELETE FROM campaign_row_data WHERE row_id=?", (rid,))
+    c.execute("DELETE FROM campaign_rows WHERE campaign_id=?", (campaign_id,))
+    c.execute("DELETE FROM campaigns WHERE id=?", (campaign_id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for("direct_import"))
+
 
 
 @app.route("/")
@@ -798,16 +968,312 @@ def dashboard():
     replies = []
     # If you have a function to get these, replace with actual data
     # Example: dates, sent, delivered, delivery_rate, replies = get_kpi_chart_data()
-    return render_template("kpi_dashboard.html",
-                          latest=latest,
-                          lead_breakdown=lead_breakdown,
-                          top_campaigns=top_campaigns,
-                          dates=dates,
-                          sent=sent,
-                          delivered=delivered,
-                          delivery_rate=delivery_rate,
-                          replies=replies)
+
+
+    return render_template(
+        "dashboard.html",
+        latest=latest,
+        lead_breakdown=lead_breakdown,
+        top_campaigns=top_campaigns,
+        dates=dates,
+        sent=sent,
+        delivered=delivered,
+        delivery_rate=delivery_rate,
+        replies=replies
+    )
     
+
+@app.route("/import-list", methods=["GET", "POST"])
+def import_list():
+    if request.method == "POST":
+        file = request.files.get("file")
+        campaign_name = request.form.get("campaign_name")
+        if not file or not allowed_file(file.filename):
+            return "Invalid file", 400
+        filename = secure_filename(file.filename)
+        stream = io.StringIO(file.stream.read().decode("utf-8"))
+        reader = csv.DictReader(stream)
+        # Create campaign
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("INSERT INTO campaigns (name) VALUES (?)", (campaign_name or filename,))
+        campaign_id = c.lastrowid
+        total_rows = 0
+        for row in reader:
+            c.execute("INSERT INTO campaign_rows (campaign_id) VALUES (?)", (campaign_id,))
+            row_id = c.lastrowid
+            for key, value in row.items():
+                c.execute("INSERT INTO campaign_row_data (row_id, key, value) VALUES (?, ?, ?)", (row_id, key, value))
+            total_rows += 1
+        c.execute("UPDATE campaigns SET total_rows=? WHERE id=?", (total_rows, campaign_id))
+        conn.commit()
+        conn.close()
+        return f"Imported {total_rows} rows to campaign '{campaign_name or filename}'!"
+    # GET: Show upload form
+    return render_template("import_list.html")
+
+
+# --- Properties Main Page: Table of Properties ---
+@app.route("/properties", methods=["GET"])
+def properties_main():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute(
+        "SELECT id, address, unit, city, state, zip FROM properties ORDER BY address ASC")
+    rows = c.fetchall()
+    properties = [
+        {
+            "id": r[0],
+            "address": r[1],
+            "unit": r[2],
+            "city": r[3],
+            "state": r[4],
+            "zip": r[5],
+        }
+        for r in rows
+    ]
+    conn.close()
+    # TODO: Render template 'properties.html' with properties list
+    return render_template("properties.html", properties=properties)
+
+# --- Property Account Page ---
+
+@app.route("/property/<int:property_id>", methods=["GET"])
+@app.route("/property/<int:property_id>", methods=["GET"])
+def property_account_page(property_id):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute(
+        "SELECT id, address, unit, city, state, zip FROM properties WHERE id=?", (property_id,))
+    prop = c.fetchone()
+    if not prop:
+        conn.close()
+        return "Property not found", 404
+    property_info = {
+        "id": prop[0],
+        "address": prop[1],
+        "unit": prop[2],
+        "city": prop[3],
+        "state": prop[4],
+        "zip": prop[5],
+    }
+    c.execute("""
+        SELECT pc.role, cn.id, cn.first_name, cn.last_name, cn.type
+        FROM property_contacts pc
+        JOIN contacts_new cn ON pc.contact_id = cn.id
+        WHERE pc.property_id=?
+    """, (property_id,))
+    contacts = [
+        {
+            "role": r[0],
+            "id": r[1],
+            "first_name": r[2],
+            "last_name": r[3],
+            "type": r[4],
+        }
+        for r in c.fetchall()
+    ]
+    for contact in contacts:
+        c.execute("""
+            SELECT p.phone FROM contact_phones cp
+            JOIN phones p ON cp.phone_id = p.id
+            WHERE cp.contact_id=?
+        """, (contact["id"],))
+        contact["phones"] = [row[0] for row in c.fetchall()]
+    for contact in contacts:
+        c.execute("""
+            SELECT pr.id, pr.address, pr.unit, pr.city, pr.state, pr.zip
+            FROM property_contacts pc
+            JOIN properties pr ON pc.property_id = pr.id
+            WHERE pc.contact_id=?
+        """, (contact["id"],))
+        contact["portfolio"] = [
+            {
+                "id": r[0],
+                "address": r[1],
+                "unit": r[2],
+                "city": r[3],
+                "state": r[4],
+                "zip": r[5],
+            }
+            for r in c.fetchall()
+        ]
+    c.execute("SELECT timestamp, activity_type, details, user FROM property_activity_log WHERE property_id=? ORDER BY timestamp DESC", (property_id,))
+    activity_log = [
+        {
+            "timestamp": r[0],
+            "activity_type": r[1],
+            "details": r[2],
+            "user": r[3],
+        }
+        for r in c.fetchall()
+    ]
+    conn.close()
+    # Render property_account.html and include property_contacts_activity.html for contacts/phones/activity log management
+    return render_template(
+        "property_account.html",
+        property=property_info,
+        contacts=contacts,
+        activity_log=activity_log,
+        phones=[{"phone": p[0]} for p in sum([c["phones"] for c in contacts], [])]  # flatten phones for modal
+    )
+
+# --- CRUD: Add Property ---
+
+
+@app.route("/properties/add", methods=["POST"])
+def add_property():
+    data = request.get_json(force=True)
+    address = data.get("address")
+    unit = data.get("unit")
+    city = data.get("city")
+    state = data.get("state")
+    zip_code = data.get("zip")
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("INSERT INTO properties (address, unit, city, state, zip) VALUES (?, ?, ?, ?, ?)",
+              (address, unit, city, state, zip_code))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True})
+
+# --- CRUD: Add Contact ---
+@app.route("/contacts/add", methods=["POST"])
+def add_contact():
+    data = request.get_json(force=True)
+    first_name = data.get("first_name")
+    last_name = data.get("last_name")
+    type_ = data.get("type")
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("INSERT INTO contacts_new (first_name, last_name, type) VALUES (?, ?, ?)", (first_name, last_name, type_))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True})
+
+# --- CRUD: Add Phone ---
+
+
+@app.route("/phones/add", methods=["POST"])
+def add_phone():
+    data = request.get_json(force=True)
+    phone = data.get("phone")
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("INSERT OR IGNORE INTO phones (phone) VALUES (?)", (phone,))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True})
+
+# --- CRUD: Link Contact to Property ---
+
+
+@app.route("/property_contacts/add", methods=["POST"])
+def add_property_contact():
+    data = request.get_json(force=True)
+    property_id = data.get("property_id")
+    contact_id = data.get("contact_id")
+    role = data.get("role")
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("INSERT INTO property_contacts (property_id, contact_id, role) VALUES (?, ?, ?)",
+              (property_id, contact_id, role))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True})
+
+# --- CRUD: Link Phone to Contact ---
+
+
+@app.route("/contact_phones/add", methods=["POST"])
+def add_contact_phone():
+    data = request.get_json(force=True)
+    contact_id = data.get("contact_id")
+    phone_id = data.get("phone_id")
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("INSERT INTO contact_phones (contact_id, phone_id) VALUES (?, ?)",
+              (contact_id, phone_id))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True})
+
+# --- CRUD: Add Property Activity Log ---
+
+
+@app.route("/property_activity_log/add", methods=["POST"])
+def add_property_activity_log():
+    data = request.get_json(force=True)
+    property_id = data.get("property_id")
+    activity_type = data.get("activity_type")
+    details = data.get("details")
+    user = data.get("user")
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("INSERT INTO property_activity_log (property_id, activity_type, details, user) VALUES (?, ?, ?, ?)",
+              (property_id, activity_type, details, user))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True})
+
+# --- API endpoint for properties table (for frontend filtering/sorting/search) ---
+
+
+@app.route("/api/properties", methods=["GET"])
+def api_properties():
+    search = request.args.get("search", "")
+    sort = request.args.get("sort", "address")
+    order = request.args.get("order", "asc")
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    query = "SELECT id, address, unit, city, state, zip FROM properties"
+    params = []
+    if search:
+        query += " WHERE address LIKE ? OR city LIKE ? OR state LIKE ? OR zip LIKE ?"
+        params.extend([f"%{search}%"] * 4)
+    query += f" ORDER BY {sort} {order.upper()}"
+    c.execute(query, params)
+    rows = c.fetchall()
+    properties = [
+        {
+            "id": r[0],
+            "address": r[1],
+            "unit": r[2],
+            "city": r[3],
+            "state": r[4],
+            "zip": r[5],
+        }
+        for r in rows
+    ]
+    conn.close()
+    return jsonify(properties)
+
+# --- API endpoint for property activity log (for notification center) ---
+@app.route("/api/property_activity_log", methods=["GET"])
+def api_property_activity_log():
+    property_id = request.args.get("property_id")
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    if property_id:
+        c.execute(
+            "SELECT property_id, timestamp, activity_type, details, user FROM property_activity_log WHERE property_id=? ORDER BY timestamp DESC", (property_id,))
+    else:
+        c.execute(
+            "SELECT property_id, timestamp, activity_type, details, user FROM property_activity_log ORDER BY timestamp DESC LIMIT 100")
+    rows = c.fetchall()
+    logs = [
+        {
+            "property_id": r[0],
+            "timestamp": r[1],
+            "activity_type": r[2],
+            "details": r[3],
+            "user": r[4],
+        }
+        for r in rows
+    ]
+    conn.close()
+    return jsonify(logs)
+
 # --- Twilio Client JS Token Endpoint ---
 @app.route('/token')
 def token():

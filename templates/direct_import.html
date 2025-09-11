@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Direct Import</h2>
+<a href="/import-list" class="btn">+ Import List</a>
+<table>
+    <thead>
+        <tr>
+            <th>List Name</th>
+            <th>Total Rows</th>
+            <th>Created</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for camp in campaigns %}
+        <tr>
+            <td>{{ camp.name }}</td>
+            <td>{{ camp.total_rows }}</td>
+            <td>{{ camp.created_at }}</td>
+            <td>
+                <a href="/campaign/{{ camp.id }}">View</a>
+                <a href="/campaign/{{ camp.id }}/download">Download</a>
+                <form action="/campaign/{{ camp.id }}/delete" method="POST" style="display:inline;" onsubmit="return confirm('Delete this campaign?');">
+                    <button type="submit">Delete</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

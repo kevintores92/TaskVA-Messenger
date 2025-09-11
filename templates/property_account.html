@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="property-account">
+    <div class="left-panel" style="width:70%;float:left;">
+        <h2>Property: {{ property.address }}{% if property.unit %} Unit {{ property.unit }}{% endif %}, {{ property.city }}, {{ property.state }} {{ property.zip }}</h2>
+        <div class="tabs">
+            <button onclick="showTab('lead')">Lead Details</button>
+            <button onclick="showTab('tasks')">Tasks & Appts</button>
+            <button onclick="showTab('portfolio')">Portfolio</button>
+        </div>
+        <div id="tab-lead" class="tab-content">
+            {% include "property_contacts_activity.html" %}
+        </div>
+        <div id="tab-tasks" class="tab-content" style="display:none;">
+            <h3>Tasks & Appointments</h3>
+            <p>Coming soon...</p>
+        </div>
+        <div id="tab-portfolio" class="tab-content" style="display:none;">
+            <h3>Portfolio</h3>
+            {% for contact in contacts %}
+                <h4>{{ contact.first_name }} {{ contact.last_name }}'s Portfolio</h4>
+                <ul>
+                {% for prop in contact.portfolio %}
+                    <li>{{ prop.address }}{% if prop.unit %} Unit {{ prop.unit }}{% endif %}, {{ prop.city }}, {{ prop.state }} {{ prop.zip }}</li>
+                {% endfor %}
+                </ul>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="right-panel" style="width:28%;float:right;">
+        <h3>Activity Log</h3>
+        <ul id="activity-log-list">
+        {% for log in activity_log %}
+            <li>{{ log.timestamp }} - <strong>{{ log.activity_type }}</strong>: {{ log.details }} ({{ log.user }})</li>
+        {% endfor %}
+        </ul>
+        <form id="addActivityLogForm">
+            <input name="activity_type" placeholder="Type (e.g. Note, Edit)" required><br>
+            <input name="details" placeholder="Details" required><br>
+            <input name="user" placeholder="User" required><br>
+            <button type="submit">Add Log</button>
+        </form>
+    </div>
+</div>
+<script>
+function showTab(tab) {
+    document.getElementById('tab-lead').style.display = (tab === 'lead') ? 'block' : 'none';
+    document.getElementById('tab-tasks').style.display = (tab === 'tasks') ? 'block' : 'none';
+    document.getElementById('tab-portfolio').style.display = (tab === 'portfolio') ? 'block' : 'none';
+}
+document.getElementById('addActivityLogForm').onsubmit = function(e) {
+    e.preventDefault();
+    const form = e.target;
+    const data = {
+        property_id: {{ property.id }},
+        activity_type: form.activity_type.value,
+        details: form.details.value,
+        user: form.user.value
+    };
+    fetch('/property_activity_log/add', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    }).then(r => r.json()).then(res => {
+        if(res.success) {
+            // Reload activity log
+            fetch(`/api/property_activity_log?property_id=${data.property_id}`)
+                .then(r => r.json())
+                .then(logs => {
+                    const ul = document.getElementById('activity-log-list');
+                    ul.innerHTML = '';
+                    logs.forEach(log => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `${log.timestamp} - <strong>${log.activity_type}</strong>: ${log.details} (${log.user})`;
+                        ul.appendChild(li);
+                    });
+                });
+            form.reset();
+        }
+    });
+};
+</script>
+{% endblock %}

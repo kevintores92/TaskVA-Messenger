@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Properties</h2>
+<div>
+    <input type="text" id="search" placeholder="Search address/city/state/zip...">
+    <select id="sort">
+        <option value="address">Address</option>
+        <option value="city">City</option>
+        <option value="state">State</option>
+        <option value="zip">Zip</option>
+    </select>
+    <select id="order">
+        <option value="asc">Ascending</option>
+        <option value="desc">Descending</option>
+    </select>
+    <button onclick="loadProperties()">Search</button>
+    <button onclick="showAddPropertyForm()">Add Property</button>
+</div>
+<table id="properties-table">
+    <thead>
+        <tr>
+            <th>Address</th>
+            <th>Unit</th>
+            <th>City</th>
+            <th>State</th>
+            <th>Zip</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+<div id="addPropertyModal" style="display:none;">
+    <h3>Add Property</h3>
+    <form id="addPropertyForm">
+        <input name="address" placeholder="Address" required><br>
+        <input name="unit" placeholder="Unit"><br>
+        <input name="city" placeholder="City" required><br>
+        <input name="state" placeholder="State" required><br>
+        <input name="zip" placeholder="Zip" required><br>
+        <button type="submit">Add</button>
+        <button type="button" onclick="hideAddPropertyForm()">Cancel</button>
+    </form>
+</div>
+<script>
+function loadProperties() {
+    const search = document.getElementById('search').value;
+    const sort = document.getElementById('sort').value;
+    const order = document.getElementById('order').value;
+    fetch(`/api/properties?search=${encodeURIComponent(search)}&sort=${sort}&order=${order}`)
+        .then(r => r.json())
+        .then(data => {
+            const tbody = document.querySelector('#properties-table tbody');
+            tbody.innerHTML = '';
+            data.forEach(prop => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${prop.address}</td>
+                    <td>${prop.unit || ''}</td>
+                    <td>${prop.city}</td>
+                    <td>${prop.state}</td>
+                    <td>${prop.zip}</td>
+                    <td><a href="/property/${prop.id}">View</a></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        });
+}
+function showAddPropertyForm() {
+    document.getElementById('addPropertyModal').style.display = 'block';
+}
+function hideAddPropertyForm() {
+    document.getElementById('addPropertyModal').style.display = 'none';
+}
+document.getElementById('addPropertyForm').onsubmit = function(e) {
+    e.preventDefault();
+    const form = e.target;
+    const data = {
+        address: form.address.value,
+        unit: form.unit.value,
+        city: form.city.value,
+        state: form.state.value,
+        zip: form.zip.value
+    };
+    fetch('/properties/add', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    }).then(r => r.json()).then(res => {
+        if(res.success) {
+            hideAddPropertyForm();
+            loadProperties();
+        }
+    });
+};
+window.onload = loadProperties;
+</script>
+{% endblock %}
