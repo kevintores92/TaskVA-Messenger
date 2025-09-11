@@ -80,17 +80,7 @@ def normalize_timestamp(ts_str):
         print(f"Error normalizing timestamp: {ts_str} -> {e}")
         return ts_str
 
-
-        # Example before inserting into DB
-        raw_ts = message["timestamp"]  # from Twilio API
-        normalized_ts = normalize_timestamp(raw_ts)
-        message["timestamp"] = normalized_ts
-
-        # Now insert message dict into DB
-        db_cursor.execute("""
-            INSERT INTO messages (phone, body, timestamp, ...)
-            VALUES (?, ?, ?, ...)
-        """, (message["phone"], message["body"], message["timestamp"], ...))
+        
 def get_kpi_chart_data():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
