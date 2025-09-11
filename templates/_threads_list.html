@@ -46,7 +46,7 @@
           {% if ts %}
             {% set dt = ts.split(' ')[0] %}
             {% set tm = ts.split(' ')[1] if ' ' in ts else '' %}
-            {% set current_date = cycler.__self__.now().strftime('%Y-%m-%d') %}
+            {# current_date is now passed from Flask context #}
             {% if dt == current_date %}
               {{ tm[:5] }}
             {% else %}
