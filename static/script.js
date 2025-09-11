@@ -4,22 +4,21 @@
 function appendMessage(phone, body, direction, timestamp) {
   // Only append if the thread is currently open
   if (!currentPhone || currentPhone !== phone) return;
-      const contactExtra = document.getElementById("contact-extra");
-      if (contactExtra) {
-        let allHtml = '<div class="contact-extra-grid">';
-        let zillowIndex = -1;
-        let zillowKey = null;
-        let zillowVal = null;
-        if (data.contact_headers && data.contact_all) {
-          for (let i = 0; i < data.contact_headers.length; i++) {
-            const key = data.contact_headers[i];
-            if (key.toLowerCase().indexOf("zillow") !== -1) {
-              zillowIndex = i;
-              zillowKey = key;
-              zillowVal = data.contact_all[key] || "";
-              break;
-            }
-          }
+
+  const contactExtra = document.getElementById("contact-extra");
+  if (contactExtra) {
+    let allHtml = '<div class="contact-extra-grid">';
+    let zillowIndex = -1;
+    let zillowKey = null;
+    let zillowVal = null;
+
+    if (data.contact_headers && data.contact_all) {
+      for (let i = 0; i < data.contact_headers.length; i++) {
+        const key = data.contact_headers[i];
+        if (key.toLowerCase().indexOf("zillow") !== -1) {
+          zillowIndex = i;
+          zillowKey = key;
+          zillowVal = data.contact_all[key] || "";
           // Zillow link row first (if present)
           if (zillowKey && zillowVal) {
             allHtml += `<div class="contact-key">${zillowKey}</div><div class="contact-val"><a href="${zillowVal}" target="_blank" rel="noopener noreferrer" class="zillow-link">
@@ -28,66 +27,73 @@ function appendMessage(phone, body, direction, timestamp) {
               </svg>
             </a></div>`;
           }
-          // Render all other fields except Zillow Link, with Phone next
-          for (let i = 0; i < data.contact_headers.length; i++) {
-            const key = data.contact_headers[i];
-            if (key === zillowKey) continue;
-            const val = data.contact_all[key] || "";
-            allHtml += `<div class="contact-key">${key}</div><div class="contact-val"><span class="contact-val-text" data-key="${key}">${val}</span></div>`;
-          }
+          break;
         }
-        allHtml += '</div>';
-        contactExtra.innerHTML = allHtml;
-        // Inline edit logic
-        contactExtra.querySelectorAll('.contact-val-text').forEach(span => {
-          span.addEventListener('click', function(e) {
-            if (span.classList.contains('editing')) return;
-            span.classList.add('editing');
-            const key = span.getAttribute('data-key');
-            const oldVal = span.textContent;
-            span.innerHTML = `<input type="text" class="contact-inline-input" value="${oldVal.replace(/"/g, '&quot;')}" />`;
-            const input = span.querySelector('input');
-            input.focus();
-            input.select();
-            // Save on blur or Enter
-            function saveEdit() {
-              const newVal = input.value;
-              if (newVal !== oldVal) {
-                fetch('/update-contact', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ phone: data.contact_all.phone, [key]: newVal })
-                }).then(r => r.json()).then(result => {
-                  if (result.success) {
-                    span.innerHTML = newVal;
-                    span.classList.remove('editing');
-                    span.style.background = '#d4ffd4';
-                    setTimeout(() => { span.style.background = ''; }, 800);
-                  } else {
-                    span.innerHTML = oldVal;
-                    span.classList.remove('editing');
-                    span.style.background = '#ffd4d4';
-                    alert('Error updating: ' + (result.error || 'Unknown error'));
-                  }
-                });
+      }
+      // Render all other fields except Zillow Link, with Phone next
+      for (let i = 0; i < data.contact_headers.length; i++) {
+        const key = data.contact_headers[i];
+        if (key === zillowKey) continue;
+        const val = data.contact_all[key] || "";
+        allHtml += `<div class="contact-key">${key}</div><div class="contact-val"><span class="contact-val-text" data-key="${key}">${val}</span></div>`;
+      }
+    }
+    allHtml += '</div>';
+    contactExtra.innerHTML = allHtml;
+
+    // Inline edit logic
+    contactExtra.querySelectorAll('.contact-val-text').forEach(span => {
+      span.addEventListener('click', function () {
+        if (span.classList.contains('editing')) return;
+        span.classList.add('editing');
+        const key = span.getAttribute('data-key');
+        const oldVal = span.textContent;
+        span.innerHTML = `<input type="text" class="contact-inline-input" value="${oldVal.replace(/"/g, '&quot;')}" />`;
+        const input = span.querySelector('input');
+        input.focus();
+        input.select();
+
+        // Save on blur or Enter
+        function saveEdit() {
+          const newVal = input.value;
+          if (newVal !== oldVal) {
+            fetch('/update-contact', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ phone: data.contact_all.phone, [key]: newVal })
+            }).then(r => r.json()).then(result => {
+              if (result.success) {
+                span.innerHTML = newVal;
+                span.classList.remove('editing');
+                span.style.background = '#d4ffd4';
+                setTimeout(() => { span.style.background = ''; }, 800);
               } else {
                 span.innerHTML = oldVal;
                 span.classList.remove('editing');
-              }
-            }
-            input.addEventListener('blur', saveEdit);
-            input.addEventListener('keydown', function(e) {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                input.blur();
-              } else if (e.key === 'Escape') {
-                span.innerHTML = oldVal;
-                span.classList.remove('editing');
+                span.style.background = '#ffd4d4';
+                alert('Error updating: ' + (result.error || 'Unknown error'));
               }
             });
-          });
+          } else {
+            span.innerHTML = oldVal;
+            span.classList.remove('editing');
+          }
+        }
+        input.addEventListener('blur', saveEdit);
+        input.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            input.blur();
+          } else if (e.key === 'Escape') {
+            span.innerHTML = oldVal;
+            span.classList.remove('editing');
+          }
         });
-      }
+      });
+    });
+  }
+}
+
 // === Helper: Temporary toast messages ===
 function showTempMessage(msg) {
   const toast = document.createElement('div');
@@ -1238,6 +1244,4 @@ function onTagChanged(phone, newTag) {
   if (newTag === 'Drip') {
     showDripAssignmentPopup(phone);
   }
-  // ...existing logic for updating tag...
 }
-

@@ -52,8 +52,16 @@
     <div class="thread-actions">
         <div class="thread-time">{{ thread.timestamp }}</div>
         <div style="display:flex;align-items:center;">
-          <button class="mark-read-btn btn btn-sm" data-phone="{{ thread.phone }}" data-unread="{{ thread.unread|int }}" onclick="event.stopPropagation(); toggleReadStatus(this)">
-            <img src="/static/{{ 'icon-envelope-open.png' if not thread.unread else 'icon-envelope.png' }}" alt="Mark Read/Unread" style="width:24px;height:24px;filter:invert(1);">
+          <button class="gmail-icon-btn mark-read-btn" data-phone="{{ thread.phone }}" data-unread="{{ thread.unread|int }}" data-tooltip="{{ 'Mark as Unread' if not thread.unread else 'Mark as Read' }}" aria-label="{{ 'Mark as Unread' if not thread.unread else 'Mark as Read' }}" onclick="event.stopPropagation(); toggleReadStatus(this)">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
+              {% if thread.unread %}
+                <!-- Envelope closed (unread) -->
+                <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/>
+              {% else %}
+                <!-- Envelope open (read) -->
+                <path d="M4 8l8 5 8-5v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8zm8-6L4 8l8 5 8-5-8-6z"/>
+              {% endif %}
+            </svg>
           </button>
           <button class="btn btn-sm call-btn" onclick="event.stopPropagation(); callContact('{{ thread.phone }}')" style="display:none;">📞</button>
           <input type="checkbox" class="thread-checkbox" data-phone="{{ thread.phone }}" onclick="event.stopPropagation();">

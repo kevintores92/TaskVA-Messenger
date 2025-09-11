@@ -110,14 +110,28 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); box-sh
 
 /* --- Right Panel --- */
 #contact-extra { max-height: 100%; overflow-y: auto; padding: 10px; }
-.contact-extra-grid { display: grid; grid-template-columns: 1fr 150px; gap: 4px 8px; align-items: start; word-wrap: break-word; overflow-wrap: anywhere; margin-top: 8px; }
-.contact-extra-grid > div:nth-child(4n+1), .contact-extra-grid > div:nth-child(4n+2) { background: #f9f9f9; border-radius: 4px; padding: 4px 6px; }
-.contact-extra-grid > div:nth-child(4n+3), .contact-extra-grid > div:nth-child(4n+4) { background: #fff; border-radius: 4px; padding: 4px 6px; }
-.contact-extra-grid > div:nth-child(4n+1), .contact-extra-grid > div:nth-child(4n+2),
-.contact-extra-grid > div:nth-child(4n+3), .contact-extra-grid > div:nth-child(4n+4) {
-  padding: 2px 4px;
-}
+.contact-extra-grid { display: grid; grid-template-columns: 1fr 150px; gap: 4px 8px; align-items: center; word-wrap: break-word; overflow-wrap: anywhere; margin-top: 8px; }
 
+.zillow-link svg {
+  width: 24px;       /* adjust as needed */
+  height: 24px;
+  color: #0074e4;    /* Zillow blue or whatever color you want */
+  vertical-align: middle;
+  margin-bottom: 2rem;
+}
+.zillow-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  color: inherit;
+  font-weight: 500;
+  margin-top: 12px; 
+}
+.zillow-link:hover svg {
+  color: #005bb5;    /* darker blue on hover */
+}
+  
 /*  --- Responsive --- & --- Layout Helpers --- */
 .container { max-width: 1100px; margin: 0 auto; padding: var(--padding); }
 .grid { display: grid; gap: 1.5rem; }
@@ -295,3 +309,45 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); box-sh
 .contact-val-text { cursor: pointer; transition: background 0.2s; }
 .contact-val-text.editing { background: #eef; }
 input.contact-inline-input { width:90%; background: transparent; border: 1px solid #e0e0e0; border-radius: 4px; padding: 2px 4px; font-size: 14px; }
+
+/* Gmail-style icon button for Mark as Read/Unread */
+.gmail-icon-btn {
+  background: none;
+  border: none;
+  padding: 6px;
+  margin: 0;
+  cursor: pointer;
+  color: #5f6368;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+}
+.gmail-icon-btn:focus {
+  outline: none;
+}
+.gmail-icon-btn:focus-visible {
+  box-shadow: 0 0 0 3px rgba(66,133,244,0.2);
+  border-radius: 4px;
+}
+.gmail-icon-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+  display: block;
+}
+.gmail-tooltip {
+  position: fixed;
+  z-index: 2147483647;
+  background: #202124;
+  color: #fff;
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  pointer-events: none;
+  opacity: 0.98;
+}
