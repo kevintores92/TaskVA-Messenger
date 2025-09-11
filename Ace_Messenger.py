@@ -1398,7 +1398,7 @@ def update_contact():
     phone = data.get("phone")
     updates = {k: v for k, v in data.items() if k != "phone"}
     if not phone or not updates:
-        return jsonify(success=False, error="Missing phone or update fields"), 400
+        return jsonify(success=False)
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     set_clause = ", ".join([f"{k}=?" for k in updates.keys()])
@@ -1415,7 +1415,7 @@ def add_contact():
     columns = get_contact_columns()
     values = [data.get(col, "") for col in columns]
     if not data.get("phone"):
-        return jsonify(success=False, error="Phone is required"), 400
+        return jsonify(success=False)
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     placeholders = ", ".join(["?" for _ in columns])
