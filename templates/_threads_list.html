@@ -46,7 +46,6 @@
           {% if ts %}
             {% set dt = ts.split(' ')[0] %}
             {% set tm = ts.split(' ')[1] if ' ' in ts else '' %}
-            {% set current_date = cycler.__self__.now().strftime('%Y-%m-%d') %}
             {% if dt == current_date %}
               {{ tm[:5] }}
             {% else %}
@@ -60,7 +59,7 @@
         <div style="display:flex;align-items:center;">
           <button class="gmail-icon-btn mark-read-btn" data-phone="{{ thread.phone }}" data-unread="{{ thread.unread|int }}" title="{{ 'Mark as Unread' if not thread.unread else 'Mark as Read' }}" aria-label="{{ 'Mark as Unread' if not thread.unread else 'Mark as Read' }}" onclick="event.stopPropagation(); toggleReadStatus(this)">
 <script>
-function toggleReadStatus(btn) {
+ function toggleReadStatus(btn) {
   const phone = btn.getAttribute('data-phone');
   const unread = btn.getAttribute('data-unread') === '1';
   fetch('/api/thread/read', {
@@ -90,26 +89,7 @@ function toggleReadStatus(btn) {
           </button>
           <button class="btn btn-sm call-btn" onclick="event.stopPropagation(); callContact('{{ thread.phone }}')" style="display:none;">📞</button>
 <script>
-// Infinite scroll logic for threads
-let loadingThreads = false;
-let page = 1;
-function loadMoreThreads() {
-  if (loadingThreads) return;
-  loadingThreads = true;
-  page++;
-  fetch(`/api/threads?page=${page}`)
-    .then(r => r.json())
-    .then(data => {
-      // Append new threads to list
-      // TODO: implement append logic
-      loadingThreads = false;
-    });
-}
-window.addEventListener('scroll', function() {
-  if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 200) {
-    loadMoreThreads();
-  }
-});
+// Show call button on hover
 // Show call button on hover
 document.querySelectorAll('.thread').forEach(function(thread) {
   thread.addEventListener('mouseenter', function() {

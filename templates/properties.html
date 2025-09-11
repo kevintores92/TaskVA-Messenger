@@ -1,48 +1,72 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Properties</h2>
-    <link rel="stylesheet" href="/static/custom-margins.css">
-<div>
-    <input type="text" id="search" placeholder="Search address/city/state/zip...">
-    <select id="sort">
-        <option value="address">Address</option>
-        <option value="city">City</option>
-        <option value="state">State</option>
-        <option value="zip">Zip</option>
-    </select>
-    <select id="order">
-        <option value="asc">Ascending</option>
-        <option value="desc">Descending</option>
-    </select>
-    <button onclick="loadProperties()">Search</button>
-    <button onclick="showAddPropertyForm()">Add Property</button>
-</div>
-    <div class="container properties-main">
-<table id="properties-table">
-    <thead>
-        <tr>
-            <th>Address</th>
-            <th>Unit</th>
-            <th>City</th>
-            <th>State</th>
-            <th>Zip</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody></tbody>
-</table>
-<div id="addPropertyModal" style="display:none;">
-    <h3>Add Property</h3>
-    <form id="addPropertyForm">
-        <input name="address" placeholder="Address" required><br>
-        <input name="unit" placeholder="Unit"><br>
-        <input name="city" placeholder="City" required><br>
-        <input name="state" placeholder="State" required><br>
-        <input name="zip" placeholder="Zip" required><br>
-        <button type="submit">Add</button>
-        <button type="button" onclick="hideAddPropertyForm()">Cancel</button>
-    </form>
-</div>
+<main class="shifted p-4 lg:p-6">
+    <h2>Properties</h2>
+        <link rel="stylesheet" href="/static/custom-margins.css">
+    <div>
+        <input type="text" id="search" placeholder="Search address/city/state/zip...">
+        <select id="sort">
+            <option value="address">Address</option>
+            <option value="city">City</option>
+            <option value="state">State</option>
+            <option value="zip">Zip</option>
+        </select>
+        <select id="order">
+            <option value="asc">Ascending</option>
+            <option value="desc">Descending</option>
+        </select>
+        <button onclick="loadProperties()">Search</button>
+        <button onclick="showAddPropertyForm()">Add Property</button>
+    </div>
+        <div class="container properties-main">
+    <table id="properties-table">
+        <thead>
+            <tr>
+                <th>Address</th>
+                <th>Unit</th>
+                <th>City</th>
+                <th>State</th>
+                <th>Zip</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <div id="addPropertyModal" style="display:none;">
+        <h3>Add Property</h3>
+        <form id="addPropertyForm">
+            <input name="address" placeholder="Address" required><br>
+            <input name="unit" placeholder="Unit"><br>
+            <input name="city" placeholder="City" required><br>
+            <input name="state" placeholder="State" required><br>
+            <input name="zip" placeholder="Zip" required><br>
+            <button type="submit">Add</button>
+            <button type="button" onclick="hideAddPropertyForm()">Cancel</button>
+        </form>
+    </div>
+</main
+<style>
+    #properties-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+    }
+    #properties-table th, #properties-table td {
+        border: 1px solid #ddd;
+        padding: 8px;
+    }
+    #properties-table th {
+        background-color: #f2f2f2;
+        text-align: left;
+    }
+    /* shift all content right by sidebar width */
+    main.shifted { margin-left: 5%; }
+
+    /* on smaller screens (tablet/mobile), remove the shift so it centers */
+    @media (max-width: 1024px) {
+    main.shifted { margin-left: 0; }
+    }
+</style>
 <script>
 function loadProperties() {
     const search = document.getElementById('search').value;
