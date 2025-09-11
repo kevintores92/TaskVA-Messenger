@@ -27,8 +27,37 @@ document.getElementById('uploadBtn').onclick = function() {
     document.getElementById('headerMapping').style.display = 'block';
 };
 document.getElementById('importBtn').onclick = function() {
-    alert('Importing with mapped headers...');
-    // TODO: AJAX to backend for import
+    // Collect mapped headers
+    const headerDivs = document.querySelectorAll('#headersList > div');
+    const mappings = Array.from(headerDivs).map(div => {
+        const label = div.querySelector('label').textContent;
+        const value = div.querySelector('select').value;
+        return { header: label, mappedTo: value };
+    });
+    // Collect campaign name and file
+    const campaignName = document.getElementById('campaign_name').value;
+    const fileInput = document.getElementById('file');
+    if (!fileInput.files.length) return alert('No file selected.');
+    const file = fileInput.files[0];
+    const formData = new FormData();
+    formData.append('campaign_name', campaignName);
+    formData.append('file', file);
+    formData.append('mappings', JSON.stringify(mappings));
+    fetch('/import-contacts', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Import successful!');
+        } else {
+            alert('Import failed: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(err => {
+        alert('Error importing: ' + err);
+    });
 };
 </script>
     <div class="container list-main">

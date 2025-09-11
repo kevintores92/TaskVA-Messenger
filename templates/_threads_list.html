@@ -49,7 +49,7 @@
             {% if dt == current_date %}
               {{ tm[:5] }}
             {% else %}
-              {{ dt|date('MMM d') }}
+            {{ dt|strftime('%b %d') }}
             {% endif %}
           {% endif %}
         </div>
