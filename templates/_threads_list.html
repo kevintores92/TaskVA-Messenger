@@ -22,11 +22,14 @@
                   data-phone="{{ thread.phone }}"
                   data-tag="{{ thread.tag or 'No tag' }}"
                   {% if drip_name %}data-tooltip="{{ drip_name }}" title="{{ drip_name }}"{% else %}title="{{ thread.tag or 'No tag' }}"{% endif %}>
-              {% if thread.tag == 'Drip' or (thread.tag and thread.tag.startswith('Drip')) %}💧
-              {% elif thread.tag == 'Wrong Number' %}❗
-              {% elif thread.tag == 'Not interested' %}❌
-              {% else %}{{ tag_icons.get(thread.tag or 'No tag', '🏷️') }}
-              {% endif %}
+          {% if thread.tag == 'Drip' or (thread.tag and thread.tag.startswith('Drip')) %}
+            💧
+          {% elif thread.tag == 'Wrong Number' %}
+            ❗
+          {% elif thread.tag == 'Not interested' %}
+            ❌
+          {% else %}{{ tag_icons.get(thread.tag or 'No tag', '🏷️') }}
+          {% endif %}
             </span>
             <span class="tag-menu">
               {% for tag in tags %}
@@ -39,14 +42,14 @@
                   {% elif tag == 'Not interested' %}❌
                   {% else %}{{ tag_icons.get(tag, '🏷️') }}
                   {% endif %}
-                </span>
-              {% endfor %}
-            </span>
-            {% if thread.notes and thread.notes|trim %}
-              <span class="note-icon">&#128221;
-                <span class="note-tooltip">{{ thread.notes }}</span>
+                  </span>
+                {% endfor %}
               </span>
-            {% endif %}
+              {% if thread.notes and thread.notes|trim %}
+                  <span class="note-icon">&#128221;
+                    <span class="note-tooltip">{{ thread.notes }}</span>
+                  </span>
+              {% endif %}
           </span>
         </div>
         <div class="thread-time" style="margin-left:16px; text-align:right; min-width:80px;">
