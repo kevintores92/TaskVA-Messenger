@@ -1373,8 +1373,6 @@ def inbox():
     unanswered_count = len([t for t in all_threads if t.get("latest_direction") == "inbound" and not t.get("responded")])
     reminders_count = 0  # later query reminders table
     no_tags_count = len([t for t in all_threads if not t.get("tag")])
-    from datetime import datetime
-    current_date = datetime.now().strftime('%Y-%m-%d')
     return render_template(
         "dashboard.html",
         threads=threads,
@@ -1390,8 +1388,7 @@ def inbox():
         unread_count=unread_count,
         unanswered_count=unanswered_count,
         reminders_count=reminders_count,
-        no_tags_count=no_tags_count,
-        current_date=current_date
+        no_tags_count=no_tags_count
     )
 
 

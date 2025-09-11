@@ -46,12 +46,11 @@
           {% if ts %}
             {% set dt = ts.split(' ')[0] %}
             {% set tm = ts.split(' ')[1] if ' ' in ts else '' %}
-            {# current_date is now passed from Flask context #}
+            {% set current_date = cycler.__self__.now().strftime('%Y-%m-%d') %}
             {% if dt == current_date %}
               {{ tm[:5] }}
             {% else %}
-              {# Fallback: show dt as YYYY-MM-DD, or format in Python if needed #}
-              {{ dt[5:7] }}/{{ dt[8:10] }}
+              {{ dt|date('MMM d') }}
             {% endif %}
           {% endif %}
         </div>

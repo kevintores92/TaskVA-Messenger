@@ -197,66 +197,12 @@
   
   <!-- RIGHT PANEL -->
   <div id="right-panel" class="mobile-hidden">
-    <div class="right-tabs">
-      <button class="right-tab-btn active" id="tab-contact-details" onclick="showRightTab('contact-details')">Contact Details</button>
-      <button class="right-tab-btn" id="tab-activity-log" onclick="showRightTab('activity-log')">Activity Log</button>
-    </div>
-    <div id="right-tab-content">
-      <div id="right-contact-details" class="right-tab-pane" style="display:block;">
-        <div id="zillow-icon" style="display:flex;align-items:center;justify-content:center;padding:12px 0;"></div>
-        <div id="contact-extra"><!-- populated by loadThread; edit form will be injected here --></div>
-        <div id="notes-panel" class="meta-section">
-          <textarea id="notes" rows="5" placeholder="Notes..."></textarea>
-        </div>
-      </div>
-      <div id="right-activity-log" class="right-tab-pane" style="display:none;">
-        <div id="activity-log-content" style="padding:12px;">
-          <!-- Activity log will be populated here -->
-        </div>
-      </div>
+  <div id="zillow-icon" style="display:flex;align-items:center;justify-content:center;padding:12px 0;"></div>
+    <div id="contact-extra"><!-- populated by loadThread; edit form will be injected here --></div>
+    <div id="notes-panel" class="meta-section">
+      <textarea id="notes" rows="5" placeholder="Notes..."></textarea>
     </div>
   </div>
-<style>
-.right-tabs {
-  display: flex;
-  border-bottom: 1px solid #e5e7eb;
-  background: #f9fafb;
-}
-.right-tab-btn {
-  flex: 1;
-  padding: 10px 0;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  font-weight: 500;
-  color: #2563eb;
-  cursor: pointer;
-  transition: border-color 0.2s, background 0.2s;
-}
-.right-tab-btn.active {
-  border-bottom: 2px solid #2563eb;
-  background: #fff;
-  color: #1d4ed8;
-}
-.right-tab-pane {
-  min-height: 200px;
-}
-</style>
-<script>
-function showRightTab(tab) {
-  document.getElementById('tab-contact-details').classList.remove('active');
-  document.getElementById('tab-activity-log').classList.remove('active');
-  document.getElementById('right-contact-details').style.display = 'none';
-  document.getElementById('right-activity-log').style.display = 'none';
-  if (tab === 'contact-details') {
-    document.getElementById('tab-contact-details').classList.add('active');
-    document.getElementById('right-contact-details').style.display = 'block';
-  } else {
-    document.getElementById('tab-activity-log').classList.add('active');
-    document.getElementById('right-activity-log').style.display = 'block';
-  }
-}
-</script>
 
 <div id="dripPopup" style="display:none;"></div>
 

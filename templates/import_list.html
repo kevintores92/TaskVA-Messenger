@@ -1,19 +1,21 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Import List</h2>
-    <link rel="stylesheet" href="/static/custom-margins.css">
-<form id="csvUploadForm" method="POST" enctype="multipart/form-data">
-    <label for="campaign_name">Campaign Name:</label>
-    <input type="text" name="campaign_name" id="campaign_name" placeholder="Enter campaign name" required><br><br>
-    <label for="file">Select CSV file:</label>
-    <input type="file" name="file" id="file" accept=".csv" required><br><br>
-    <button type="button" id="uploadBtn">Upload</button>
-</form>
-<div id="headerMapping" style="display:none; margin-top:20px;">
-    <h3>Map CSV Headers</h3>
-    <div id="headersList"></div>
-    <button id="importBtn">Import</button>
-</div>
+<main class="shifted p-4 lg:p-6">
+    <h2>Import List</h2>
+        <link rel="stylesheet" href="/static/custom-margins.css">
+    <form id="csvUploadForm" method="POST" enctype="multipart/form-data">
+        <label for="campaign_name">Campaign Name:</label>
+        <input type="text" name="campaign_name" id="campaign_name" placeholder="Enter campaign name" required><br><br>
+        <label for="file">Select CSV file:</label>
+        <input type="file" name="file" id="file" accept=".csv" required><br><br>
+        <button type="button" id="uploadBtn">Upload</button>
+    </form>
+    <div id="headerMapping" style="display:none; margin-top:20px;">
+        <h3>Map CSV Headers</h3>
+        <div id="headersList"></div>
+        <button id="importBtn">Import</button>
+    </div>
+</main
 <script>
 document.getElementById('uploadBtn').onclick = function() {
     const fileInput = document.getElementById('file');
