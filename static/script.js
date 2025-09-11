@@ -1,3 +1,48 @@
+// === Sidebar Popups ===
+document.addEventListener('DOMContentLoaded', function() {
+  // Phone Dialer Popup
+  const sidebarPhone = document.getElementById('sidebarPhone');
+  const phonePopup = document.getElementById('phonePopup');
+  if (sidebarPhone && phonePopup) {
+    sidebarPhone.addEventListener('click', function(e) {
+      e.preventDefault();
+      phonePopup.style.display = 'block';
+    });
+  }
+
+  // Text Popup (if implemented)
+  const sidebarText = document.getElementById('sidebarText');
+  const textPopup = document.getElementById('textPopup');
+  if (sidebarText && textPopup) {
+    sidebarText.addEventListener('click', function(e) {
+      e.preventDefault();
+      textPopup.style.display = 'block';
+    });
+  }
+
+  // Add Contact Popup
+  const sidebarAddContact = document.getElementById('sidebarAddContact');
+  const addContactPopup = document.getElementById('addContactPopup');
+  if (sidebarAddContact && addContactPopup) {
+    sidebarAddContact.addEventListener('click', function(e) {
+      e.preventDefault();
+      addContactPopup.style.display = 'block';
+    });
+  }
+
+  // Close popups on overlay click or close button
+  window.closeAddContactPopup = function(event) {
+    if (!event || event.target.classList.contains('modal-overlay') || event.target.classList.contains('modal-close')) {
+      addContactPopup.style.display = 'none';
+    }
+  };
+  window.closePhonePopup = function(event) {
+    if (!event || event.target.classList.contains('modal-overlay') || event.target.classList.contains('modal-close')) {
+      phonePopup.style.display = 'none';
+    }
+  };
+  // If you have a textPopup, add similar close logic
+});
 // === Assign tag from thread list ===
 
 // === Append a message to the conversation view ===
