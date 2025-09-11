@@ -689,24 +689,7 @@ if (threadList) {
   });
 }
 
-function clearDateFilters() {
-  document.getElementById('from-date').value = "";
-  document.getElementById('to-date').value = "";
-  reloadThreads();
-}
 
-// === Auto-apply date filters ===
-document.addEventListener("DOMContentLoaded", () => {
-  const fromDate = document.getElementById("from-date");
-  const toDate = document.getElementById("to-date");
-
-  if (fromDate) {
-    fromDate.addEventListener("change", () => reloadThreads());
-  }
-  if (toDate) {
-    toDate.addEventListener("change", () => reloadThreads());
-  }
-});
 
 // === Thread count helper ===
 function updateThreadCount() {
@@ -1311,3 +1294,94 @@ function onTagChanged(phone, newTag) {
     showDripAssignmentPopup(phone);
   }
 }
+
+// Toggle read/unread status
+function toggleReadStatus(btn) {
+  const phone = btn.getAttribute('data-phone');
+  const unread = btn.getAttribute('data-unread') === '1';
+  fetch('/api/thread/read', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone: phone, read: !unread })
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        // Toggle unread attribute and title
+        btn.setAttribute('data-unread', unread ? '0' : '1');
+        btn.title = unread ? 'Mark as Read' : 'Mark as Unread';
+        btn.setAttribute('aria-label', btn.title);
+        // Toggle icon if present
+        const img1 = btn.querySelector('img');
+        if (img1) {
+          img1.src = '/static/' + (unread ? 'icon-envelope.png' : 'icon-envelope-open.png');
+        }
+        // Toggle unread badge
+        const threadDiv1 = btn.closest('.thread.card');
+        if (threadDiv1) {
+          const unreadBadge1 = threadDiv1.querySelector('.unread-badge');
+          if (unreadBadge1) {
+            if (unread) unreadBadge1.remove();
+          } else {
+            if (!unread) {
+              const badge1 = document.createElement('span');
+              badge1.className = 'unread-badge';
+              badge1.style = 'color:red; margin-left:6px;';
+              badge1.textContent = '●';
+              const nameLabel1 = threadDiv1.querySelector('.thread-name-label');
+              if (nameLabel1) nameLabel1.after(badge1);
+            }
+          }
+        }
+        // Optionally update UI without full reload
+        // Update unread badge and button title/icon
+        const threadDiv2 = btn.closest('.thread.card');
+        if (threadDiv2) {
+          const unreadBadge2 = threadDiv2.querySelector('.unread-badge');
+          if (unreadBadge2) {
+            if (unread) unreadBadge2.remove();
+          } else {
+            if (!unread) {
+              const badge2 = document.createElement('span');
+              badge2.className = 'unread-badge';
+              badge2.style = 'color:red; margin-left:6px;';
+              badge2.textContent = '●';
+              const nameLabel2 = threadDiv2.querySelector('.thread-name-label');
+              if (nameLabel2) nameLabel2.after(badge2);
+            }
+          }
+        }
+        // Update button title and ariaLabel
+        btn.title = unread ? 'Mark as Read' : 'Mark as Unread';
+        btn.ariaLabel = btn.title;
+        // Update icon if present
+        const img2 = btn.querySelector('img');
+        if (img2) {
+          img2.src = '/static/' + (unread ? 'icon-envelope.png' : 'icon-envelope-open.png');
+        }
+      }
+    });
+}
+
+// Mark thread as read when opened
+function loadThread(phone) {
+  fetch('/api/thread/read', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone: phone, read: true })
+  });
+  // ...existing loadThread logic...
+}
+
+
+// Show call button on hover
+document.querySelectorAll('.thread').forEach(function (thread) {
+  thread.addEventListener('mouseenter', function () {
+    const btn = thread.querySelector('.call-btn');
+    if (btn) btn.style.display = 'inline-block';
+  });
+  thread.addEventListener('mouseleave', function () {
+    const btn = thread.querySelector('.call-btn');
+    if (btn) btn.style.display = 'none';
+  });
+});

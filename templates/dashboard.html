@@ -55,50 +55,6 @@
       {% include "_threads.html" %}
     </div>
   </div>
-  <script>
-  // Toggle read/unread status
-  function toggleReadStatus(btn) {
-    const phone = btn.getAttribute('data-phone');
-    const unread = btn.getAttribute('data-unread') === '1';
-    fetch('/api/thread/read', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: phone, read: unread ? true : false })
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success) {
-        // Toggle icon
-        btn.setAttribute('data-unread', unread ? '0' : '1');
-        btn.querySelector('img').src = '/static/' + (unread ? 'icon-envelope-open.png' : 'icon-envelope.png');
-        // Toggle unread badge
-        const threadDiv = btn.closest('.thread.card');
-        const unreadBadge = threadDiv.querySelector('.unread-badge');
-        if (unreadBadge) {
-          if (unread) unreadBadge.remove();
-        } else {
-          if (!unread) {
-            const badge = document.createElement('span');
-            badge.className = 'unread-badge';
-            badge.style = 'color:red; margin-left:6px;';
-            badge.textContent = '●';
-            threadDiv.querySelector('.thread-name-label').after(badge);
-          }
-        }
-      }
-    });
-  }
-
-  // Mark thread as read when opened
-  function loadThread(phone) {
-    fetch('/api/thread/read', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: phone, read: true })
-    });
-    // ...existing loadThread logic...
-  }
-  </script>
   <!-- CENTER PANEL -->
   <div id="center" class="center-panel">
     <div id="contact-meta-top" class="contact-section-header">

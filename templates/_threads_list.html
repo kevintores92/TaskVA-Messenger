@@ -22,7 +22,11 @@
                   data-phone="{{ thread.phone }}"
                   data-tag="{{ thread.tag or 'No tag' }}"
                   {% if drip_name %}data-tooltip="{{ drip_name }}" title="{{ drip_name }}"{% else %}title="{{ thread.tag or 'No tag' }}"{% endif %}>
-              {% if thread.tag == 'Drip' or (thread.tag and thread.tag.startswith('Drip')) %}💧{% elif thread.tag == 'Wrong Number' %}❗{% elif thread.tag == 'Not interested' %}❌{% else %}{{ tag_icons.get(thread.tag or 'No tag', '🏷️') }}{% endif %}
+              {% if thread.tag == 'Drip' or (thread.tag and thread.tag.startswith('Drip')) %}💧
+              {% elif thread.tag == 'Wrong Number' %}❗
+              {% elif thread.tag == 'Not interested' %}❌
+              {% else %}{{ tag_icons.get(thread.tag or 'No tag', '🏷️') }}
+              {% endif %}
             </span>
             <span class="tag-menu">
               {% for tag in tags %}
@@ -31,15 +35,19 @@
                       title="{{ tag }}"
                       onclick="assignTagToThread('{{ thread.phone }}', '{{ tag }}')"
                       style="cursor:pointer;">
-                  {% if tag == 'Wrong Number' %}❗{% elif tag == 'Not interested' %}❌{% else %}{{ tag_icons.get(tag, '🏷️') }}{% endif %}
+                  {% if tag == 'Wrong Number' %}❗
+                  {% elif tag == 'Not interested' %}❌
+                  {% else %}{{ tag_icons.get(tag, '🏷️') }}
+                  {% endif %}
                 </span>
               {% endfor %}
             </span>
-          {% if thread.notes and thread.notes|trim %}
-            <span class="note-icon">&#128221;
-              <span class="note-tooltip">{{ thread.notes }}</span>
-            </span>
-          {% endif %}
+            {% if thread.notes and thread.notes|trim %}
+              <span class="note-icon">&#128221;
+                <span class="note-tooltip">{{ thread.notes }}</span>
+              </span>
+            {% endif %}
+          </span>
         </div>
         <div class="thread-time" style="margin-left:16px; text-align:right; min-width:80px;">
           {% set ts = thread.timestamp %}
@@ -49,60 +57,33 @@
             {% if dt == current_date %}
               {{ tm[:5] }}
             {% else %}
-            {{ dt|strftime('%b %d') }}
+              {{ dt|strftime('%b %d') }}
             {% endif %}
           {% endif %}
         </div>
       </div>
       <div class="thread-preview thread-body">{{ thread.latest | replace('\n', '<br>') | safe }}</div>
     </div>
-        <div style="display:flex;align-items:center;">
-          <button class="gmail-icon-btn mark-read-btn" data-phone="{{ thread.phone }}" data-unread="{{ thread.unread|int }}" title="{{ 'Mark as Unread' if not thread.unread else 'Mark as Read' }}" aria-label="{{ 'Mark as Unread' if not thread.unread else 'Mark as Read' }}" onclick="event.stopPropagation(); toggleReadStatus(this)">
-<script>
- function toggleReadStatus(btn) {
-  const phone = btn.getAttribute('data-phone');
-  const unread = btn.getAttribute('data-unread') === '1';
-  fetch('/api/thread/read', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ phone: phone, read: !unread })
-  }).then(r => r.json()).then(res => {
-    if (res.success) {
-      btn.setAttribute('data-unread', unread ? '0' : '1');
-      btn.title = unread ? 'Mark as Read' : 'Mark as Unread';
-      btn.ariaLabel = btn.title;
-      // Optionally update UI
-      location.reload();
-    }
-  });
-}
-</script>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
-              {% if thread.unread %}
-                <!-- Envelope closed (unread) -->
-                <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/>
-              {% else %}
-                <!-- Envelope open (read) -->
-                <path d="M4 8l8 5 8-5v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8zm8-6L4 8l8 5 8-5-8-6z"/>
-              {% endif %}
-            </svg>
-          </button>
-          <button class="btn btn-sm call-btn" onclick="event.stopPropagation(); callContact('{{ thread.phone }}')" style="display:none;">📞</button>
-<script>
-// Show call button on hover
-// Show call button on hover
-document.querySelectorAll('.thread').forEach(function(thread) {
-  thread.addEventListener('mouseenter', function() {
-    const btn = thread.querySelector('.call-btn');
-    if (btn) btn.style.display = 'inline-block';
-  });
-  thread.addEventListener('mouseleave', function() {
-    const btn = thread.querySelector('.call-btn');
-    if (btn) btn.style.display = 'none';
-  });
-});
-</script>
-        </div>
+    <div style="display:flex;align-items:center;">
+      <button class="gmail-icon-btn mark-read-btn"
+              data-phone="{{ thread.phone }}"
+              data-unread="{{ thread.unread|int }}"
+              title="{{ 'Mark as Unread' if not thread.unread else 'Mark as Read' }}"
+              aria-label="{{ 'Mark as Unread' if not thread.unread else 'Mark as Read' }}"
+              onclick="event.stopPropagation(); toggleReadStatus(this)">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
+          {% if thread.unread %}
+            <!-- Envelope closed (unread) -->
+            <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/>
+          {% else %}
+            <!-- Envelope open (read) -->
+            <path d="M4 8l8 5 8-5v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8zm8-6L4 8l8 5 8-5-8-6z"/>
+          {% endif %}
+        </svg>
+      </button>
+      <button class="btn btn-sm call-btn"
+              onclick="event.stopPropagation(); callContact('{{ thread.phone }}')"
+              style="display:none;">📞</button>
     </div>
   </div>
 {% endfor %}
