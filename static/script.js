@@ -5,35 +5,33 @@ function appendMessage(phone, body, direction, timestamp) {
   // Only append if the thread is currently open
   if (!currentPhone || currentPhone !== phone) return;
 
+  // Set Zillow icon link in right panel
+  const zillowIconDiv = document.getElementById("zillow-icon");
+  if (zillowIconDiv && data.contact_all) {
+    let zillowUrl = "";
+    for (const key in data.contact_all) {
+      if (key.toLowerCase().indexOf("zillow") !== -1) {
+        zillowUrl = data.contact_all[key];
+        break;
+      }
+    }
+    if (zillowUrl) {
+      zillowIconDiv.innerHTML = `<a href="${zillowUrl}" target="_blank" rel="noopener noreferrer" class="zillow-link">
+        <img src="https://static.zillowstatic.com/images/logos/zillow-logo.svg" alt="Zillow" style="height:32px;max-width:120px;">
+      </a>`;
+    } else {
+      zillowIconDiv.innerHTML = "";
+    }
+  }
+
+  // Render contact-extra without Zillow Link
   const contactExtra = document.getElementById("contact-extra");
   if (contactExtra) {
     let allHtml = '<div class="contact-extra-grid">';
-    let zillowIndex = -1;
-    let zillowKey = null;
-    let zillowVal = null;
-
     if (data.contact_headers && data.contact_all) {
       for (let i = 0; i < data.contact_headers.length; i++) {
         const key = data.contact_headers[i];
-        if (key.toLowerCase().indexOf("zillow") !== -1) {
-          zillowIndex = i;
-          zillowKey = key;
-          zillowVal = data.contact_all[key] || "";
-          // Zillow link row first (if present)
-          if (zillowKey && zillowVal) {
-            allHtml += `<div class="contact-key">${zillowKey}</div><div class="contact-val"><a href="${zillowVal}" target="_blank" rel="noopener noreferrer" class="zillow-link">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-                <path d="M12 2L2 10v10a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1V10L12 2zM12 4.4 18 10H6l6-5.6zM12 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
-              </svg>
-            </a></div>`;
-          }
-          break;
-        }
-      }
-      // Render all other fields except Zillow Link, with Phone next
-      for (let i = 0; i < data.contact_headers.length; i++) {
-        const key = data.contact_headers[i];
-        if (key === zillowKey) continue;
+        if (key.toLowerCase().indexOf("zillow") !== -1) continue;
         const val = data.contact_all[key] || "";
         allHtml += `<div class="contact-key">${key}</div><div class="contact-val"><span class="contact-val-text" data-key="${key}">${val}</span></div>`;
       }
@@ -856,11 +854,34 @@ function loadThread(phone) {
       setTimeout(() => { messagesDiv.scrollTop = messagesDiv.scrollHeight; }, 50);
 
       // Contact info, tags, notes
+      // Set name/number smaller
       document.getElementById("contact-name").innerText = data.csv_name || data.db_name || data.name || phone || "";
+      document.getElementById("contact-name").style.fontSize = "1rem";
+      document.getElementById("contact-thread-label").style.fontSize = "1rem";
       selectedtag = data.tag || "";
       rendertagChips(selectedtag);
+      document.getElementById("tag-menu").style.fontSize = "0.95rem";
+      document.getElementById("tag-chips").style.display = "inline-flex";
+      document.getElementById("tag-chips").style.gap = "4px";
       document.getElementById("notes").value = data.notes || "";
       updateThreadCount();
+
+      // Set address and link above name/number
+      let address = data.contact_all && (data.contact_all.Address || "");
+      let city = data.contact_all && (data.contact_all.city || "");
+      let state = data.contact_all && (data.contact_all.state || "");
+      let zip = data.contact_all && (data.contact_all.zip || "");
+      let fullAddress = address;
+      if (city) fullAddress += ", " + city;
+      if (state) fullAddress += ", " + state;
+      if (zip) fullAddress += " " + zip;
+      document.getElementById("contact-address").innerText = fullAddress;
+      // Link to property account details page (if address exists)
+      let propertyUrl = "#";
+      if (address && city && state && zip) {
+        propertyUrl = `/property_account?address=${encodeURIComponent(address)}&city=${encodeURIComponent(city)}&state=${encodeURIComponent(state)}&zip=${encodeURIComponent(zip)}`;
+      }
+      document.getElementById("contact-address-link").href = propertyUrl;
 
       // Extra contact info
       const contactExtra = document.getElementById("contact-extra");

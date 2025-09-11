@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h2>Properties</h2>
+    <link rel="stylesheet" href="/static/custom-margins.css">
 <div>
     <input type="text" id="search" placeholder="Search address/city/state/zip...">
     <select id="sort">
@@ -16,6 +17,7 @@
     <button onclick="loadProperties()">Search</button>
     <button onclick="showAddPropertyForm()">Add Property</button>
 </div>
+    <div class="container properties-main">
 <table id="properties-table">
     <thead>
         <tr>

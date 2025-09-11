@@ -34,38 +34,27 @@
         <input type="text" id="search" placeholder="Search...">
         <span id="clear-search" class="clear-btn">&times;</span>
       </div>
-      <span id="threadCount">{{ threads|length }} msgs</span>
       {% if box != 'inbox' %}
       <span class="mission-control-header">
-      <ul class="mission-control">
-        <li onclick="setBoxFilter('unread')" title="Unread">
-          <div class="square-icon-box">📩</div>
-          <div class="mission-callout">{{ unread_count }}</div>
-        </li>
-        <li onclick="setBoxFilter('unanswered')" title="Unanswered">
-          <div class="square-icon-box">⏳</div>
-          <div class="mission-callout">{{ unanswered_count }}</div>
-        </li>
-        <li onclick="setBoxFilter('reminders')" title="Reminders">
-          <div class="square-icon-box">⏰</div>
-          <div class="mission-callout">{{ reminders_count }}</div>
-        </li>
-        <li onclick="setBoxFilter('no-tags')" title="No Tags">
-          <div class="square-icon-box">🏷️</div>
-          <div class="mission-callout">{{ no_tags_count }}</div>
-        </li>
-      </ul>
-    </span>
-    <div style="text-align:right; margin:10px 20px 0 0;">
-      <a href="/logout" style="color:#007bff; font-weight:bold; text-decoration:none;">Logout</a>
+        <ul class="mission-control">
+          <li onclick="setBoxFilter('unread')" title="Unread">
+            <div class="square-icon-box">📩</div>
+            <div class="mission-callout">{{ unread_count }}</div>
+          </li>
+          <li onclick="setBoxFilter('reminders')" title="Reminders">
+            <div class="square-icon-box">⏰</div>
+            <div class="mission-callout">{{ reminders_count }}</div>
+          </li>
+        </ul>
+      </span>
+      <span id="threadCount">{{ threads|length }} msgs</span>
+        {% endif %}
+      </div>
+      <!-- Threads List -->
+      <div id="thread-list-inner">
+        {% include "_threads.html" %}
+      </div>
     </div>
-      {% endif %}
-    </div>
-    <!-- Threads List -->
-    <div id="thread-list-inner">
-      {% include "_threads.html" %}
-    </div>
-  </div>
 
   <script>
   let currentPage = 1;
@@ -122,25 +111,8 @@
       fetchMoreThreads();
     }
   });
-  </script>
-  <style>
-    .thread-actions .mark-read-btn, .thread-actions .call-btn {
-      display: none;
-      margin-right: 6px;
-      background: none;
-      border: none;
-      cursor: pointer;
-      padding: 0;
-    }
-    .thread.card:hover .thread-actions .mark-read-btn,
-    .thread.card:hover .thread-actions .call-btn {
-      display: inline-block;
-    }
-    .thread.card .thread-actions .call-btn {
-      margin-left: 4px;
-    }
-  </style>
-  <script>
+  
+
   function toggleReadStatus(btn) {
     const phone = btn.getAttribute('data-phone');
     const unread = btn.getAttribute('data-unread') === '1';
@@ -187,10 +159,17 @@
   <!-- CENTER PANEL -->
   <div id="center" class="center-panel">
     <div id="contact-meta-top" class="contact-section-header">
-      <h2 id="contact-name" class="thread-name">Select a conversation</h2>
-      <b class="thread-name-label" id="contact-thread-label"></b>
-      <div id="tag-menu">
-        <div id="tag-chips"></div>
+      <div id="contact-address-row" style="margin-bottom:2px;">
+        <a id="contact-address-link" href="#" style="font-size:1rem;color:#0074e4;text-decoration:underline;">
+          <span id="contact-address">&nbsp;</span>
+        </a>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span id="contact-name" class="thread-name" style="font-size:1rem;font-weight:500;">Select a conversation</span>
+        <b class="thread-name-label" id="contact-thread-label" style="font-size:1rem;font-weight:400;margin-left:4px;"></b>
+        <div id="tag-menu" style="font-size:0.95rem;display:inline-flex;align-items:center;margin-left:8px;">
+          <div id="tag-chips" style="display:inline-flex;gap:4px;"></div>
+        </div>
       </div>
     </div>
 
@@ -218,11 +197,66 @@
   
   <!-- RIGHT PANEL -->
   <div id="right-panel" class="mobile-hidden">
-  <div id="contact-extra"><!-- populated by loadThread; edit form will be injected here --></div>
-    <div id="notes-panel" class="meta-section">
-      <textarea id="notes" rows="5" placeholder="Notes..."></textarea>
+    <div class="right-tabs">
+      <button class="right-tab-btn active" id="tab-contact-details" onclick="showRightTab('contact-details')">Contact Details</button>
+      <button class="right-tab-btn" id="tab-activity-log" onclick="showRightTab('activity-log')">Activity Log</button>
+    </div>
+    <div id="right-tab-content">
+      <div id="right-contact-details" class="right-tab-pane" style="display:block;">
+        <div id="zillow-icon" style="display:flex;align-items:center;justify-content:center;padding:12px 0;"></div>
+        <div id="contact-extra"><!-- populated by loadThread; edit form will be injected here --></div>
+        <div id="notes-panel" class="meta-section">
+          <textarea id="notes" rows="5" placeholder="Notes..."></textarea>
+        </div>
+      </div>
+      <div id="right-activity-log" class="right-tab-pane" style="display:none;">
+        <div id="activity-log-content" style="padding:12px;">
+          <!-- Activity log will be populated here -->
+        </div>
+      </div>
     </div>
   </div>
+<style>
+.right-tabs {
+  display: flex;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+.right-tab-btn {
+  flex: 1;
+  padding: 10px 0;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-weight: 500;
+  color: #2563eb;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.right-tab-btn.active {
+  border-bottom: 2px solid #2563eb;
+  background: #fff;
+  color: #1d4ed8;
+}
+.right-tab-pane {
+  min-height: 200px;
+}
+</style>
+<script>
+function showRightTab(tab) {
+  document.getElementById('tab-contact-details').classList.remove('active');
+  document.getElementById('tab-activity-log').classList.remove('active');
+  document.getElementById('right-contact-details').style.display = 'none';
+  document.getElementById('right-activity-log').style.display = 'none';
+  if (tab === 'contact-details') {
+    document.getElementById('tab-contact-details').classList.add('active');
+    document.getElementById('right-contact-details').style.display = 'block';
+  } else {
+    document.getElementById('tab-activity-log').classList.add('active');
+    document.getElementById('right-activity-log').style.display = 'block';
+  }
+}
+</script>
 
 <div id="dripPopup" style="display:none;"></div>
 
