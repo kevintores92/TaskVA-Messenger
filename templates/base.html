@@ -215,14 +215,6 @@
       makeModalDraggable('#phonePopup');
       makeModalDraggable('#textPopup');
 
-      // === Example Sidebar Toggle (Dark Mode) ===
-      const darkModeToggle = document.getElementById("darkModeToggle");
-      if (darkModeToggle) {
-        darkModeToggle.addEventListener("change", () => {
-          document.body.classList.toggle("dark-mode", darkModeToggle.checked);
-        });
-      }
-    });
     // === Add Contact Popup ===
     document.getElementById('sidebarAddContact').addEventListener('click', function(e) {
       e.preventDefault();
@@ -238,7 +230,7 @@
       const form = e.target;
       const data = Object.fromEntries(new FormData(form));
       if (!data.phone) { alert('Phone is required'); return; }
-  const res = await fetch('/add-contact-inbox', {
+  const res = await fetch('/inbox-contact-add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)

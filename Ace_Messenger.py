@@ -1410,8 +1410,8 @@ def update_contact():
     return jsonify(success=True)
 
 # --- Add contact endpoint ---
-@app.route("/add-contact", methods=["POST"])
-def add_contact():
+@app.route("/inbox-contact-add", methods=["POST"])
+def inbox_contact_add():
     data = request.get_json(force=True)
     columns = get_contact_columns()
     values = [data.get(col, "") for col in columns]
