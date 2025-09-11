@@ -1,3 +1,31 @@
+function showThreadActions(threadDiv) {
+  const actions = threadDiv.querySelector('.thread-actions');
+  if (actions) {
+    const callBtn = actions.querySelector('.call-btn');
+    const readBtn = actions.querySelector('.read-btn');
+    const timestamp = actions.querySelector('.thread-time');
+    if (callBtn) callBtn.style.display = 'inline-block';
+    if (readBtn) readBtn.style.display = 'inline-block';
+    if (timestamp) timestamp.style.visibility = 'hidden'; // or 'visible' if you want to keep it
+  }
+}
+
+function hideThreadActions(threadDiv) {
+  const actions = threadDiv.querySelector('.thread-actions');
+  if (actions) {
+    const callBtn = actions.querySelector('.call-btn');
+    const readBtn = actions.querySelector('.read-btn');
+    const timestamp = actions.querySelector('.thread-time');
+    if (callBtn) callBtn.style.display = 'none';
+    if (readBtn) readBtn.style.display = 'none';
+    if (timestamp) timestamp.style.visibility = 'visible';
+  }
+}
+
+function callContact(phone) {
+  // Implement call logic here
+  alert('Calling ' + phone);
+}
 // === Sidebar Popups ===
 document.addEventListener('DOMContentLoaded', function() {
   // Phone Dialer Popup

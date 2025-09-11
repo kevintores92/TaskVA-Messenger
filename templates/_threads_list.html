@@ -57,13 +57,19 @@
             {% if dt == current_date %}
               {{ tm[:5] }}
             {% else %}
-              {{ dt|strftime('%b %d') }}
-            {% endif %}
-          {% endif %}
+        <div class="thread-actions">
+          <div class="thread-time">{{ thread.timestamp }}</div>
+          <button class="call-btn" style="display:none;" onclick="callContact('{{ thread.phone }}');" title="Call">
+            <img src="/static/icon-call.png" alt="Call" />
+          </button>
+          <button class="read-btn" style="display:none;" onclick="toggleReadStatus(this);" data-phone="{{ thread.phone }}" data-unread="{{ thread.unread|int }}" title="Mark as Read/Unread">
+            <img src="/static/icon-envelope.png" alt="Read/Unread" />
+          </button>
+        </div>
         </div>
       </div>
       <div class="thread-preview thread-body">{{ thread.latest | replace('\n', '<br>') | safe }}</div>
-    </div>
+    <div class="thread card" id="thread-{{ thread.phone|replace('+','plus') }}" onclick="loadThread('{{ thread.phone }}')" onmouseover="showThreadActions(this)" onmouseout="hideThreadActions(this)">
     <div style="display:flex;align-items:center;">
       <button class="gmail-icon-btn mark-read-btn"
               data-phone="{{ thread.phone }}"

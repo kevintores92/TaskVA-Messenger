@@ -55,7 +55,7 @@ TAG_ICONS = {
     
 def normalize_e164(num):
     s = ''.join(filter(str.isdigit, str(num)))
-    if s.startswith('1') and len(s) == 11:
+    if s.startswith('1') and len(s) == 11:  # Normalize E.164 format
         return '+' + s
     elif len(s) == 10:
         return '+1' + s
