@@ -50,7 +50,8 @@
             {% if dt == current_date %}
               {{ tm[:5] }}
             {% else %}
-              {{ dt|date('MMM d') }}
+              {# Fallback: show dt as YYYY-MM-DD, or format in Python if needed #}
+              {{ dt[5:7] }}/{{ dt[8:10] }}
             {% endif %}
           {% endif %}
         </div>
