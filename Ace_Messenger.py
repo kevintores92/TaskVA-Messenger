@@ -7,7 +7,7 @@ from flask_socketio import SocketIO
 from twilio.rest import Client
 from twilio.twiml.voice_response import VoiceResponse
 from twilio.jwt.access_token import AccessToken
-from twilio.jwt.access_token.grants import VoiceGrant
+from twilio.jwt.access_token import VoiceGrant
 from sms_sender_core import send_sms_batch
 # ── CONFIG ─────────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -959,6 +959,87 @@ def add_contact():
     return jsonify(success=True)
 # === Drip Automations ===
 @app.route("/assign-drip", methods=["POST"])
+
+# --- API endpoint for infinite scroll threads ---
+@app.route("/api/threads", methods=["GET"])
+def api_threads():
+    search = request.args.get("search", "")
+    box = request.args.get("box", "inbox")
+    tags_filter = request.args.getlist("tags")
+    from_date = request.args.get("from")
+    to_date = request.args.get("to")
+    try:
+        page = int(request.args.get("page", 1))
+        if page < 1:
+            page = 1
+    except Exception:
+        page = 1
+    page_size = 50
+    all_threads = get_threads(search=search, box=box, page=page, page_size=page_size)
+    # Default excluded tags for inbox view
+    default_excluded = {"DNC", "No tag", "Wrong Number", "Unverified", "Not interested"}
+    if box == 'inbox':
+        if not tags_filter or tags_filter == []:
+            all_threads = [t for t in all_threads if t.get("tag") not in default_excluded]
+        else:
+            if "__ALL__" not in tags_filter:
+                if "__NO_tag__" in tags_filter:
+                    all_threads = [t for t in all_threads if not t.get("tag")]
+                else:
+                    all_threads = [t for t in all_threads if t.get("tag") in tags_filter]
+            else:
+                all_threads = [t for t in all_threads if t.get("tag") not in default_excluded]
+    if box == 'unread':
+        all_threads = [
+            t for t in all_threads
+            if not t.get("tag") and t.get("latest") and t.get("latest").strip() and "inbound" in t.get("latest_direction", "inbound")
+        ]
+    def parse_date(ts):
+        try:
+            return datetime.strptime(str(ts)[:10], "%Y-%m-%d").date()
+        except Exception:
+            return None
+    if from_date:
+        from_d = datetime.strptime(from_date, "%Y-%m-%d").date()
+        all_threads = [
+            t for t in all_threads
+            if parse_date(t.get("timestamp")) and parse_date(t["timestamp"]) >= from_d
+        ]
+    if to_date:
+        to_d = datetime.strptime(to_date, "%Y-%m-%d").date()
+        all_threads = [
+            t for t in all_threads
+            if parse_date(t.get("timestamp")) and parse_date(t["timestamp"]) <= to_d
+        ]
+    threads = all_threads
+    # Only return minimal fields for frontend
+    thread_list = []
+    for t in threads:
+        thread_list.append({
+            "phone": t.get("phone"),
+            "name": t.get("name"),
+            "unread": t.get("unread"),
+            "tag": t.get("tag"),
+            "latest": t.get("latest"),
+            "timestamp": t.get("timestamp"),
+        })
+    return jsonify({"threads": thread_list})
+    
+# --- API endpoint to mark thread as read/unread ---
+@app.route("/api/thread/read", methods=["POST"])
+def api_thread_read():
+    data = request.get_json(force=True)
+    phone = data.get("phone")
+    read = data.get("read", True)
+    if not phone:
+        return jsonify(success=False, error="Missing phone"), 400
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    # Mark all messages for this phone as read/unread
+    c.execute("UPDATE messages SET read=? WHERE phone=?", (1 if read else 0, phone))
+    conn.commit()
+    conn.close()
+    return jsonify(success=True)
 def assign_drip():
     data = request.get_json(force=True)
     phone = data.get("phone")

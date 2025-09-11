@@ -65,17 +65,124 @@
     <div id="thread-list-inner">
       {% include "_threads.html" %}
     </div>
-    <!-- Pagination Controls -->
-    <div class="pagination-controls" style="text-align:center; margin:10px 0;">
-      {% if page > 1 %}
-        <a href="?box={{ box }}&page={{ page-1 }}" class="btn btn-sm">&laquo; Prev</a>
-      {% endif %}
-      <span>Page {{ page }} of {{ (total_threads // page_size) + (1 if total_threads % page_size else 0) }}</span>
-      {% if page * page_size < total_threads %}
-        <a href="?box={{ box }}&page={{ page+1 }}" class="btn btn-sm">Next &raquo;</a>
-      {% endif %}
-    </div>
   </div>
+
+  <script>
+  let currentPage = 1;
+  let loadingThreads = false;
+  let lastPageReached = false;
+
+  function appendThreads(threads) {
+    const container = document.getElementById('thread-list-inner');
+    threads.forEach(thread => {
+      // Basic rendering, adjust as needed for your thread HTML
+      const div = document.createElement('div');
+      div.className = 'thread card';
+      div.id = `thread-${thread.phone.replace('+','plus')}`;
+      div.innerHTML = `
+        <div class="thread-info">
+          <div class="thread-name">
+            <b class="thread-name-label">${thread.name || thread.phone}</b>
+            <span class="thread-phone" style="display:none;">${thread.phone}</span>
+            ${thread.unread ? '<span class="unread-badge" style="color:red; margin-left:6px;">●</span>' : ''}
+          </div>
+          <div class="thread-preview thread-body">${thread.latest}</div>
+        </div>
+        <div class="thread-actions">
+          <div class="thread-time">${thread.timestamp}</div>
+        </div>
+      `;
+      div.onclick = function(e) {
+        if (!e.target.closest('.thread-tag-wrapper')) loadThread(thread.phone);
+      };
+      container.appendChild(div);
+    });
+  }
+
+  function fetchMoreThreads() {
+    if (loadingThreads || lastPageReached) return;
+    loadingThreads = true;
+    currentPage++;
+    fetch(`/api/threads?page=${currentPage}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.threads && data.threads.length > 0) {
+          appendThreads(data.threads);
+        } else {
+          lastPageReached = true;
+        }
+        loadingThreads = false;
+      })
+      .catch(() => { loadingThreads = false; });
+  }
+
+  document.getElementById('thread-list-inner').addEventListener('scroll', function() {
+    const el = this;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 50) {
+      fetchMoreThreads();
+    }
+  });
+  </script>
+  <style>
+    .thread-actions .mark-read-btn, .thread-actions .call-btn {
+      display: none;
+      margin-right: 6px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+    }
+    .thread.card:hover .thread-actions .mark-read-btn,
+    .thread.card:hover .thread-actions .call-btn {
+      display: inline-block;
+    }
+    .thread.card .thread-actions .call-btn {
+      margin-left: 4px;
+    }
+  </style>
+  <script>
+  function toggleReadStatus(btn) {
+    const phone = btn.getAttribute('data-phone');
+    const unread = btn.getAttribute('data-unread') === '1';
+    fetch('/api/thread/read', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: phone, read: unread ? true : false })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        // Toggle icon
+        btn.setAttribute('data-unread', unread ? '0' : '1');
+        btn.querySelector('img').src = '/static/' + (unread ? 'icon-envelope-open.png' : 'icon-envelope.png');
+        // Toggle unread badge
+        const threadDiv = btn.closest('.thread.card');
+        const unreadBadge = threadDiv.querySelector('.unread-badge');
+        if (unreadBadge) {
+          if (unread) unreadBadge.remove();
+        } else {
+          if (!unread) {
+            const badge = document.createElement('span');
+            badge.className = 'unread-badge';
+            badge.style = 'color:red; margin-left:6px;';
+            badge.textContent = '●';
+            threadDiv.querySelector('.thread-name-label').after(badge);
+          }
+        }
+      }
+    });
+  }
+
+  // Mark thread as read when opened
+  function loadThread(phone) {
+    fetch('/api/thread/read', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: phone, read: true })
+    });
+    // ...existing loadThread logic...
+  }
+  </script>
 
   <!-- CENTER PANEL -->
   <div id="center" class="center-panel">
@@ -112,10 +219,11 @@
   <!-- RIGHT PANEL -->
   <div id="right-panel" class="mobile-hidden">
   <div id="contact-extra"><!-- populated by loadThread; edit form will be injected here --></div>
-    
     <div id="notes-panel" class="meta-section">
       <textarea id="notes" rows="5" placeholder="Notes..."></textarea>
     </div>
-</div>
+  </div>
+
+<div id="dripPopup" style="display:none;"></div>
 
 {% endblock %}

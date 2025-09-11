@@ -50,9 +50,14 @@
     </div>
 
     <div class="thread-actions">
-      <div class="thread-time">{{ thread.timestamp }}</div>
-      <div><input type="checkbox" class="thread-checkbox" data-phone="{{ thread.phone }}" onclick="event.stopPropagation();">
-      <button class="btn btn-sm" onclick="event.stopPropagation(); callContact('{{ thread.phone }}')">📞</button></div>
+        <div class="thread-time">{{ thread.timestamp }}</div>
+        <div style="display:flex;align-items:center;">
+          <button class="mark-read-btn btn btn-sm" data-phone="{{ thread.phone }}" data-unread="{{ thread.unread|int }}" onclick="event.stopPropagation(); toggleReadStatus(this)">
+            <img src="/static/{{ 'icon-envelope-open.png' if not thread.unread else 'icon-envelope.png' }}" alt="Mark Read/Unread" style="width:24px;height:24px;filter:invert(1);">
+          </button>
+          <button class="btn btn-sm call-btn" onclick="event.stopPropagation(); callContact('{{ thread.phone }}')" style="display:none;">📞</button>
+          <input type="checkbox" class="thread-checkbox" data-phone="{{ thread.phone }}" onclick="event.stopPropagation();">
+        </div>
     </div>
   </div>
 {% endfor %}
