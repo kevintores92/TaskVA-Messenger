@@ -4,72 +4,90 @@
 function appendMessage(phone, body, direction, timestamp) {
   // Only append if the thread is currently open
   if (!currentPhone || currentPhone !== phone) return;
-  const messagesDiv = document.getElementById("messages");
-  if (!messagesDiv) return;
-  const messageClass = direction === "outbound" ? "message outbound" : "message inbound";
-  const html =
-    '<div class="' + messageClass + '">' +
-      '<div class="message-content">' +
-        '<div class="bubble">' + body + '</div>' +
-        '<div class="message-meta"><div class="timestamp">' + timestamp + '</div></div>' +
-      '</div>' +
-    '</div>';
-  messagesDiv.insertAdjacentHTML('beforeend', html);
-  setTimeout(() => { messagesDiv.scrollTop = messagesDiv.scrollHeight; }, 50);
-}
-function assignTagToThread(phone, tag) {
-  fetch('/update-contact', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ phone: phone, tag: tag })
-  }).then(r => r.json()).then(result => {
-    if (result.success) {
-      selectedtag = tag;
-      updateThreadtagChip(phone, tag);
-      rendertagChips(tag);
-      showTempMessage('Tag updated!');
-    } else {
-      alert('Error updating tag: ' + (result.error || 'Unknown error'));
-    }
-  });
-}
-// === Inline Edit Contact ===
-function showEditContactForm(contact) {
-  const extraDiv = document.getElementById('contact-extra');
-  if (!extraDiv) return;
-  extraDiv.innerHTML = `
-    <form id="editContactForm">
-      <input type="text" name="name" value="${contact.name||''}" placeholder="Name" class="dialer-input" />
-      <input type="text" name="phone" value="${contact.phone||''}" placeholder="Phone (required)" class="dialer-input" required readonly />
-      <input type="text" name="tag" value="${contact.tag||''}" placeholder="Tag" class="dialer-input" />
-      <textarea name="notes" placeholder="Notes" class="dialer-input">${contact.notes||''}</textarea>
-      <button type="submit" class="dialer-call">Save</button>
-      <button type="button" onclick="cancelEditContact()" class="dialer-call" style="background:#aaa;">Cancel</button>
-    </form>
-  `;
-  document.getElementById('editContactForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const form = e.target;
-    const data = Object.fromEntries(new FormData(form));
-    const res = await fetch('/update-contact', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    const result = await res.json();
-    if (result.success) {
-      showTempMessage('Contact updated!');
-      // Optionally reload thread/contact info here
-    } else {
-      alert('Error: ' + (result.error || 'Unknown error'));
-    }
-  });
-}
-function cancelEditContact() {
-  // Optionally reload the original contact-extra view
-  // For now, just clear the form
-  document.getElementById('contact-extra').innerHTML = '';
-}
+      const contactExtra = document.getElementById("contact-extra");
+      if (contactExtra) {
+        let allHtml = '<div class="contact-extra-grid">';
+        let zillowIndex = -1;
+        let zillowKey = null;
+        let zillowVal = null;
+        if (data.contact_headers && data.contact_all) {
+          for (let i = 0; i < data.contact_headers.length; i++) {
+            const key = data.contact_headers[i];
+            if (key.toLowerCase().indexOf("zillow") !== -1) {
+              zillowIndex = i;
+              zillowKey = key;
+              zillowVal = data.contact_all[key] || "";
+              break;
+            }
+          }
+          // Zillow link row first (if present)
+          if (zillowKey && zillowVal) {
+            allHtml += `<div class="contact-key">${zillowKey}</div><div class="contact-val"><a href="${zillowVal}" target="_blank" rel="noopener noreferrer" class="zillow-link">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                <path d="M12 2L2 10v10a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1V10L12 2zM12 4.4 18 10H6l6-5.6zM12 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
+              </svg>
+            </a></div>`;
+          }
+          // Render all other fields except Zillow Link, with Phone next
+          for (let i = 0; i < data.contact_headers.length; i++) {
+            const key = data.contact_headers[i];
+            if (key === zillowKey) continue;
+            const val = data.contact_all[key] || "";
+            allHtml += `<div class="contact-key">${key}</div><div class="contact-val"><span class="contact-val-text" data-key="${key}">${val}</span></div>`;
+          }
+        }
+        allHtml += '</div>';
+        contactExtra.innerHTML = allHtml;
+        // Inline edit logic
+        contactExtra.querySelectorAll('.contact-val-text').forEach(span => {
+          span.addEventListener('click', function(e) {
+            if (span.classList.contains('editing')) return;
+            span.classList.add('editing');
+            const key = span.getAttribute('data-key');
+            const oldVal = span.textContent;
+            span.innerHTML = `<input type="text" class="contact-inline-input" value="${oldVal.replace(/"/g, '&quot;')}" />`;
+            const input = span.querySelector('input');
+            input.focus();
+            input.select();
+            // Save on blur or Enter
+            function saveEdit() {
+              const newVal = input.value;
+              if (newVal !== oldVal) {
+                fetch('/update-contact', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ phone: data.contact_all.phone, [key]: newVal })
+                }).then(r => r.json()).then(result => {
+                  if (result.success) {
+                    span.innerHTML = newVal;
+                    span.classList.remove('editing');
+                    span.style.background = '#d4ffd4';
+                    setTimeout(() => { span.style.background = ''; }, 800);
+                  } else {
+                    span.innerHTML = oldVal;
+                    span.classList.remove('editing');
+                    span.style.background = '#ffd4d4';
+                    alert('Error updating: ' + (result.error || 'Unknown error'));
+                  }
+                });
+              } else {
+                span.innerHTML = oldVal;
+                span.classList.remove('editing');
+              }
+            }
+            input.addEventListener('blur', saveEdit);
+            input.addEventListener('keydown', function(e) {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                input.blur();
+              } else if (e.key === 'Escape') {
+                span.innerHTML = oldVal;
+                span.classList.remove('editing');
+              }
+            });
+          });
+        });
+      }
 // === Helper: Temporary toast messages ===
 function showTempMessage(msg) {
   const toast = document.createElement('div');
