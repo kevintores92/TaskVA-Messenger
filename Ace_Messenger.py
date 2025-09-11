@@ -1,3 +1,21 @@
+# Add this near the top, after Flask app is created
+def jinja2_strftime(value, format='%b %d'):
+    if isinstance(value, datetime):
+        return value.strftime(format)
+    return value
+
+# Register filter after Flask app is created
+# ...existing code...
+from datetime import datetime
+
+def jinja2_strftime(value, format='%b %d'):
+    if isinstance(value, datetime):
+        return value.strftime(format)
+    return value
+
+# ...existing code...
+app = Flask(__name__)
+app.jinja_env.filters['strftime'] = jinja2_strftime
 def get_kpi_chart_data():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
