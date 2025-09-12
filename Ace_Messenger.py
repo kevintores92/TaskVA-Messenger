@@ -352,8 +352,15 @@ def get_threads(search=None, tag_filters=None, box=None, page=1, page_size=50):
             skip = True
         if skip:
             continue
-        # Format timestamp
-        dt = parser.parse(str(latest_timestamp)) if latest_timestamp else datetime.now()
+        # Format timestamp safely
+        ts_str = str(latest_timestamp) if latest_timestamp else ""
+        try:
+            if ts_str and ts_str != "None":
+                dt = parser.parse(ts_str)
+            else:
+                dt = datetime.now()
+        except Exception:
+            dt = datetime.now()
         ts_formatted = dt.strftime('%Y-%m-%d %I:%M:%S %p CST')
         # Build thread entry
         is_unread = False
