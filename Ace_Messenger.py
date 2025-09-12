@@ -1,14 +1,3 @@
-    # Legacy contacts table for backward compatibility
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS contacts (
-            phone TEXT PRIMARY KEY,
-            name TEXT,
-            address TEXT,
-            tag TEXT,
-            notes TEXT
-        )
-    ''')
-# TEST CHANGE: Deployment marker - 2025-09-11
 import os, sqlite3, threading, webbrowser, time, csv, io
 from datetime import datetime, timezone, timedelta
 from dateutil import parser, tz
