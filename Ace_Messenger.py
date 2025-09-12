@@ -1286,14 +1286,14 @@ def api_properties():
     count_query = "SELECT COUNT(*) FROM properties"
     count_params = []
     # ...existing code already builds threads above...
-            "address": r[1],
-            "unit": r[2],
-            "city": r[3],
-            "state": r[4],
-            "zip": r[5],
-        }
-        for r in rows
-    ]
+    # Get all rows
+    c.execute(f"SELECT * FROM properties ORDER BY count ASC")
+    rows = c.fetchall()
+    columns = [desc[0] for desc in c.description]
+    properties = [dict(zip(columns, r)) for r in rows]
+    # Get total count
+    c.execute("SELECT COUNT(*) FROM properties")
+    total_count = c.fetchone()[0]
     conn.close()
     return jsonify({"properties": properties, "total_count": total_count, "page": page, "page_size": page_size})
 
@@ -1540,27 +1540,29 @@ def api_threads():
     # Only return minimal fields for frontend
     thread_list = []
     for t in threads:
-        # Build contact_extra string (e.g. address, tag, or other info)
-        contact_extra = ""
-        if address:
-            contact_extra += address
-        if tag:
-            contact_extra += f" | {tag}"
-        if notes:
-            contact_extra += f" | {notes}"
-        threads.append({
-            "phone": contact_phone,
-            "name": name,
-            "address": address,
-            "tag": tag,
-            "notes": notes,
-            "contact_extra": contact_extra,
-            "latest": latest_body,
-            "latest_direction": latest_direction,  # add this line
-            "timestamp": ts_formatted,
-            "twilio_number": twilio_number,
-            "unread": is_unread
-        })
+        # Build minimal thread list for frontend
+        thread_list = []
+        for t in threads:
+            contact_extra = ""
+            if t.get("address"):
+                contact_extra += t.get("address")
+            if t.get("tag"):
+                contact_extra += f" | {t.get('tag')}"
+            if t.get("notes"):
+                contact_extra += f" | {t.get('notes')}"
+            thread_list.append({
+                "phone": t.get("phone"),
+                "name": t.get("name"),
+                "address": t.get("address"),
+                "tag": t.get("tag"),
+                "notes": t.get("notes"),
+                "contact_extra": contact_extra,
+                "latest": t.get("latest"),
+                "latest_direction": t.get("latest_direction"),
+                "timestamp": t.get("timestamp"),
+                "twilio_number": t.get("twilio_number"),
+                "unread": t.get("unread")
+            })
     data = request.get_json(force=True)
     phone = data.get("phone")
     read = data.get("read", True)
@@ -1573,6 +1575,7 @@ def api_threads():
     conn.commit()
     conn.close()
     return jsonify(success=True)
+
 def assign_drip():
     data = request.get_json(force=True)
     phone = data.get("phone")

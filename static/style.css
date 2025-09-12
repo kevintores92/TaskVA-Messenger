@@ -337,10 +337,13 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); box-sh
   letter-spacing: 0.01em;
   margin-bottom: 0.05em;
   line-height: 1.05;
+  height: auto;
+  min-height: unset;
+  max-height: unset;
 }
 .thread-time { display: flex; color: #607d8b; font-size: 0.85em; }
 .thread-preview {
-  font-size: 0.95em;
+  font-size: 0.8125em;
   color: #444;
   overflow: hidden;
   text-overflow: ellipsis;
