@@ -66,19 +66,13 @@ def normalize_timestamp(ts_str):
     if not ts_str:
         return ""
     try:
-        if "T" in ts_str:
-            date_part, time_part = ts_str.split("T")
-        elif " " in ts_str:
-            date_part, time_part = ts_str.split(" ")
-        else:
-            # fallback if timestamp is not standard
-            return ts_str
-
-        time_part = time_part.split(".")[0]  # remove microseconds
-        return f"{date_part} {time_part}"
+        # Parse with dateutil, always output as 'YYYY-MM-DD HH:MM:SS' (no tz, no microseconds)
+        dt = parser.parse(ts_str)
+        dt = dt.replace(tzinfo=None)  # Remove timezone info
+        return dt.strftime('%Y-%m-%d %H:%M:%S')
     except Exception as e:
         print(f"Error normalizing timestamp: {ts_str} -> {e}")
-        return ts_str
+        return str(ts_str)[:19]
 
 
         # Example before inserting into DB
@@ -310,7 +304,8 @@ def get_threads(search=None, tag_filters=None, box=None, page=1, page_size=50):
         # Fetch contact info (fallbacks for missing columns)
         c.execute("PRAGMA table_info(contacts)")
         contact_cols = [row[1] for row in c.fetchall()]
-        c.execute(f"SELECT {', '.join(contact_cols)} FROM contacts WHERE phone=?", (contact_phone,))
+        quoted_cols = [f'"{col}"' for col in contact_cols]
+        c.execute(f"SELECT {', '.join(quoted_cols)} FROM contacts WHERE phone=?", (contact_phone,))
         contact_row = c.fetchone()
         name = ""
         address = ""
@@ -325,11 +320,13 @@ def get_threads(search=None, tag_filters=None, box=None, page=1, page_size=50):
             notes = contact_dict.get("notes", "")
             # Build contact_extra from all columns except phone
             contact_extra = " | ".join([str(v) for k, v in contact_dict.items() if k.lower() not in ("phone", "name", "address", "tag", "notes") and v and str(v).strip()])
+
         # Filter by box type
+        skip = False
         if box == 'inbox' and latest_direction != 'inbound':
-            continue
+            skip = True
         if box == 'sent' and not str(latest_direction).startswith('outbound'):
-            continue
+            skip = True
         # Filter by tag
         if tag_filters:
             tag_val = (tag or "").strip().lower()
@@ -340,9 +337,11 @@ def get_threads(search=None, tag_filters=None, box=None, page=1, page_size=50):
                 elif tag_val == tf:
                     match = True
             if not match:
-                continue
+                skip = True
         # Filter by search
         if search and search.strip() and search.lower() not in (str(contact_phone) + str(name) + str(address)).lower():
+            skip = True
+        if skip:
             continue
         # Format timestamp
         dt = parser.parse(str(latest_timestamp)) if latest_timestamp else datetime.now()
@@ -370,7 +369,7 @@ def get_threads(search=None, tag_filters=None, box=None, page=1, page_size=50):
     return threads
 
 
-def deduplicate_and_import(preview_only=False, lookback_days=3):
+def deduplicate_and_import(preview_only=False, lookback_days=1):
     """
     Import recent messages from Twilio into the local DB.
     Uses a sliding window to ensure no outbound-api messages are skipped.
@@ -400,7 +399,7 @@ def deduplicate_and_import(preview_only=False, lookback_days=3):
     # Step 2: Sliding window - fetch last N days (default 3, configurable)
     lookback_days = max(lookback_days, 3)  # Extend lookback to at least 3 days
     since_dt = datetime.utcnow() - timedelta(days=lookback_days)
-    fetch_kwargs = {"limit": 5000, "date_sent_after": since_dt.isoformat() + "Z"}
+    fetch_kwargs = {"limit": 3000, "date_sent_after": since_dt.isoformat() + "Z"}
 
     twilio_msgs = []
     total_msgs = 0
