@@ -972,7 +972,7 @@ def dashboard():
 
 
     return render_template(
-        "dashboard.html",
+        "kpi_dashboard.html",
         latest=latest,
         lead_breakdown=lead_breakdown,
         top_campaigns=top_campaigns,
