@@ -1,5 +1,0 @@
-/* Add left margin for sidebar on List and Properties pages */
-.list-main,
-.properties-main {
-  margin-left: 60px;
-}

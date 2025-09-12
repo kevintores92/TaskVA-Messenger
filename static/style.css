@@ -111,9 +111,30 @@ input:focus, textarea:focus, select:focus, button:focus {
 .btn-outline { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
 .btn-outline:hover { background: var(--primary); color: #fff; }
 .btn-block { width: 100%; margin-top: 10px; }
-.btn-filter { padding: 6px 12px; border: none; background-color: #f0f0f0; cursor: pointer; transition: background-color 0.2s; }
-.btn-filter:hover { background-color: #e0e0e0; }
-.btn-filter.active { background-color: #2563eb; color: #fff; }
+.btn-filter {
+  padding: 10px 22px;
+  border: none;
+  background-color: #f4f6fa;
+  cursor: pointer;
+  transition: background-color 0.2s, box-shadow 0.2s;
+  font-size: 1.08rem;
+  font-family: var(--font-heading);
+  border-radius: 8px;
+  margin: 0 6px 0 0;
+  box-shadow: 0 2px 8px rgba(36,42,54,0.04);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.btn-filter:hover {
+  background-color: #e0e7ff;
+  color: var(--primary-dark);
+  box-shadow: 0 4px 16px rgba(36,42,54,0.08);
+}
+.btn-filter.active {
+  background-color: #2563eb;
+  color: #fff;
+  box-shadow: 0 2px 12px #2563eb33;
+}
 
 /* --- Inputs --- */
 input, textarea, select { max-width: 100%; margin: 8px 0; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: #fff; color: var(--text-dark); font-size: 1em; transition: all 0.2s ease; }
@@ -126,9 +147,9 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); box-sh
 @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
-.main-content { padding: var(--padding); margin-left: 5%; transition: margin-left 0.3s ease; }
+.main-content { padding: var(--padding); margin-left: -60px; transition: margin-left 0.3s ease; }
 /* --- 3-Column Layout --- */
-#container-3col { display: flex; flex-direction: row; height: 100vh; overflow: hidden; margin-left: 60px; transition: margin-left 0.3s ease; }
+#container-3col { display: flex; flex-direction: row; height: 100vh; overflow: hidden;; transition: margin-left 0.3s ease; }
 #left, #center, #right-panel { min-width: 0; box-sizing: border-box; padding: 8px; background-color: #f9fafb; }
 #left { width: 50%; box-shadow: 2px 0 16px #0002; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; height: 100vh; overflow-y: auto; }
 #center { display: flex; flex-direction: column; width: 30%; border-left: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; min-height: 0; overflow-y: auto; position: relative; height: 100%; }
@@ -140,9 +161,34 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); box-sh
 .thread.selected, .thread-card.selected { border-left: 6px solid var(--accent); background: #e3f2fd; box-shadow: 0 4px 24px #2196f344; border: 2px solid #007bff; background-color: #f0f8ff; }
 .thread.selected .thread-name b { color: #007bff; }
 .thread-info { display: flex; flex-direction: column; gap: 4px; overflow: hidden; }
-.thread-name { font-weight: 600; color: #222; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.thread-name {
+  font-weight: 600;
+  color: #222;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 1.12rem;
+  font-family: var(--font-heading);
+}
 .thread-time { display: flex; color: #607d8b; font-size: 0.85em; }
-.thread-preview { font-size: 0.9em; color: #444; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: calc(100% - 120px); }
+.thread-preview {
+  font-size: 1.01rem;
+  color: #444;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: calc(100% - 120px);
+  font-family: var(--font-paragraph);
+}
+#center, .center-panel {
+  font-size: 1.08rem;
+  font-family: var(--font-paragraph);
+}
+#right-panel {
+  font-size: 1.04rem;
+  font-family: var(--font-paragraph);
+}
 .thread-actions { display: flex; align-items: center; gap: 8px; height: 100%; flex-shrink: 0; }
 .thread-checkbox { transform: scale(1.1); height: 20px; width: 20px; accent-color: #2196F3; }
 

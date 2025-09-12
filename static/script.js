@@ -29,6 +29,7 @@ document.addEventListener("DOMContentLoaded", () => {
       alert("Failed to initiate call.");
     }
   };
+});
 // === Phone/Text Popups ===
 document.getElementById('sidebarPhone').addEventListener('click', function (e) {
   e.preventDefault();

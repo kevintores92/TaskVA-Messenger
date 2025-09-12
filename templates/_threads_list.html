@@ -77,7 +77,7 @@
           {% endif %}
         </svg>
       </button>
-      <button class="btn btn-sm call-btn" onclick="event.stopPropagation(); callContact('{{ thread.phone }}')" style="display:none;">📞</button>
+  <button class="btn btn-sm call-btn" onclick="event.stopPropagation(); callContact('{{ thread.phone }}')">📞</button>
       <script>
         function toggleReadStatus(btn) {
           const phone = btn.getAttribute('data-phone');
