@@ -384,12 +384,16 @@ def deduplicate_and_import(preview_only=False, lookback_days=3):
     c.execute("SELECT phone, direction, body, timestamp FROM messages")
     db_msgs = set()
     for row in c.fetchall():
-        # Ensure timestamp format consistency
         phone, direction, body, ts = row[0], row[1], row[2], str(row[3])
         try:
-            ts_norm = parser.parse(ts).strftime('%Y-%m-%d %H:%M:%S')
+            # Try parsing with timezone awareness and fallback to UTC if missing
+            dt = parser.parse(ts)
+            if not dt.tzinfo:
+                dt = dt.replace(tzinfo=timezone.utc)
+            dt_local = dt.astimezone(tz.gettz('America/Chicago'))
+            ts_norm = dt_local.strftime('%Y-%m-%d %H:%M:%S')
         except Exception:
-            ts_norm = ts
+            ts_norm = ts.strip()[:19]  # fallback: first 19 chars (YYYY-MM-DD HH:MM:SS)
         db_msgs.add((phone, direction, body, ts_norm))
     conn.close()
 
@@ -404,10 +408,16 @@ def deduplicate_and_import(preview_only=False, lookback_days=3):
 
     def safe_parse_ts(dt):
         try:
-            return parser.parse(dt.isoformat()).astimezone(to_zone).strftime('%Y-%m-%d %H:%M:%S')
+            # Accept both datetime and string
+            if isinstance(dt, str):
+                dt = parser.parse(dt)
+            if not dt.tzinfo:
+                dt = dt.replace(tzinfo=timezone.utc)
+            dt_local = dt.astimezone(tz.gettz('America/Chicago'))
+            return dt_local.strftime('%Y-%m-%d %H:%M:%S')
         except Exception as e:
             errors.append(f"TS parse error: {dt} {e}")
-            return str(dt)
+            return str(dt).strip()[:19]
 
     # Step 2b: Retry logic for Twilio API failures
     max_retries = 3
@@ -1277,7 +1287,11 @@ def api_properties():
     search = request.args.get("search", "")
     sort = request.args.get("sort", "address")
     order = request.args.get("order", "asc")
-    page = int(request.args.get("page", 1))
+    page_arg = request.args.get("page", 1)
+    try:
+        page = int(page_arg)
+    except (ValueError, TypeError):
+        page = 1
     page_size = int(request.args.get("page_size", 20))
     offset = (page - 1) * page_size
     conn = sqlite3.connect(DB_PATH)
