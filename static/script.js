@@ -1,3 +1,34 @@
+document.addEventListener("DOMContentLoaded", () => {
+  // === Dialer: Keypad + Direct Call ===
+  window.appendDigit = function (d) {
+    const input = document.getElementById("dialNumber");
+    if (input) input.value += d;
+  };
+
+  window.startCall = async function () {
+    const phone = document.getElementById("dialNumber")?.value.trim();
+    const from = document.getElementById("callerId")?.value;
+    if (!phone) {
+      alert("Enter a phone number first.");
+      return;
+    }
+    try {
+      const res = await fetch("/call", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, from })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`📞 Calling ${phone} from ${data.from_number}...`);
+      } else {
+        alert("Error: " + data.error);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to initiate call.");
+    }
+  };
 // === Phone/Text Popups ===
 document.getElementById('sidebarPhone').addEventListener('click', function (e) {
   e.preventDefault();
