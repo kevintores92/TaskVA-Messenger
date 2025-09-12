@@ -1,26 +1,3 @@
-@app.route('/notifications')
-def notifications():
-    return render_template('notifications.html')
-@app.route('/api/reminder', methods=['POST'])
-def api_reminder():
-    data = request.get_json()
-    phone = data.get('phone')
-    date = data.get('date')
-    time_ = data.get('time')
-    notes = data.get('notes')
-    sms = data.get('sms')
-    dt_str = f"{date} {time_}:00"
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
-        c.execute("INSERT INTO reminders (phone, remind_at, notes, sms) VALUES (?, ?, ?, ?)", (phone, dt_str, notes, sms))
-        conn.commit()
-        conn.close()
-        # TODO: Add background job to send SMS at scheduled time
-        return jsonify({'success': True})
-    except Exception as e:
-        print(f"[Reminder] Error: {e}")
-        return jsonify({'success': False, 'error': str(e)})
 # TEST CHANGE: Deployment marker - 2025-09-11
 import os, sqlite3, threading, webbrowser, time, csv, io
 from datetime import datetime, timezone, timedelta
@@ -978,7 +955,30 @@ def delete_campaign(campaign_id):
     conn.close()
     return redirect(url_for("direct_import"))
 
-
+@app.route('/notifications')
+def notifications():
+    return render_template('notifications.html')
+@app.route('/api/reminder', methods=['POST'])
+def api_reminder():
+    data = request.get_json()
+    phone = data.get('phone')
+    date = data.get('date')
+    time_ = data.get('time')
+    notes = data.get('notes')
+    sms = data.get('sms')
+    dt_str = f"{date} {time_}:00"
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("INSERT INTO reminders (phone, remind_at, notes, sms) VALUES (?, ?, ?, ?)", (phone, dt_str, notes, sms))
+        conn.commit()
+        conn.close()
+        # TODO: Add background job to send SMS at scheduled time
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"[Reminder] Error: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+    
 @app.route("/")
 @app.route("/dashboard", methods=["GET"])
 def dashboard():
