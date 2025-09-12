@@ -1,4 +1,121 @@
-// === Assign tag from thread list ===
+// === Phone/Text Popups ===
+document.getElementById('sidebarPhone').addEventListener('click', function (e) {
+  e.preventDefault();
+  document.getElementById('phonePopup').style.display = 'block';
+});
+document.getElementById('sidebarText').addEventListener('click', function (e) {
+  e.preventDefault();
+  document.getElementById('textPopup').style.display = 'block';
+});
+window.closePhonePopup = function (e) {
+  if (!e || e.target.classList.contains('modal-overlay') || e.target.classList.contains('modal-close')) {
+    document.getElementById('phonePopup').style.display = 'none';
+  }
+};
+window.closeTextPopup = function (e) {
+  if (!e || e.target.classList.contains('modal-overlay') || e.target.classList.contains('modal-close')) {
+    document.getElementById('textPopup').style.display = 'none';
+  }
+};
+// === Create Message Button (Text Popup) ===
+const createBtn = document.getElementById("createMsgBtn");
+if (createBtn) {
+  createBtn.addEventListener("click", () => {
+    const toPhone = document.getElementById("msgTo").value.trim();
+    const fromPhone = document.getElementById("msgFrom").value;
+    const msgBody = document.getElementById("newMsgBody").value.trim();
+    if (!toPhone || !msgBody) return;
+    fetch("/create_thread", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to: toPhone, from: fromPhone, body: msgBody })
+    })
+      .then(r => r.json())
+      .then(data => {
+        document.getElementById("newMsgBody").value = "";
+        document.getElementById("msgTo").value = "";
+        if (data.thread_id) {
+          loadThread(toPhone);
+        }
+      });
+  });
+}
+
+// === Draggable Modal Logic ===
+function makeModalDraggable(modalSelector) {
+  const modal = document.querySelector(modalSelector);
+  if (!modal) return;
+  const content = modal.querySelector('.modal-content');
+  let isDragging = false, startX = 0, startY = 0, origX = 0, origY = 0;
+  content.addEventListener('mousedown', function (e) {
+    if (e.target.classList.contains('modal-close')) return;
+    isDragging = true;
+    content.classList.add('dragging');
+    startX = e.clientX;
+    startY = e.clientY;
+    const rect = content.getBoundingClientRect();
+    origX = rect.left;
+    origY = rect.top;
+    document.body.style.userSelect = 'none';
+  });
+  document.addEventListener('mousemove', function (e) {
+    if (!isDragging) return;
+    let dx = e.clientX - startX;
+    let dy = e.clientY - startY;
+    content.style.position = 'fixed';
+    content.style.left = (origX + dx) + 'px';
+    content.style.top = (origY + dy) + 'px';
+    content.style.margin = '0';
+  });
+  document.addEventListener('mouseup', function () {
+    if (isDragging) {
+      isDragging = false;
+      content.classList.remove('dragging');
+      document.body.style.userSelect = '';
+    }
+  });
+  // Reset position when popup is closed
+  modal.addEventListener('transitionend', function () {
+    if (modal.style.display === 'none') {
+      content.style.left = '';
+      content.style.top = '';
+      content.style.margin = '';
+      content.style.position = '';
+    }
+  });
+}
+makeModalDraggable('#phonePopup');
+makeModalDraggable('#textPopup');
+
+// === Add Contact Popup ===
+document.getElementById('sidebarAddContact').addEventListener('click', function (e) {
+  e.preventDefault();
+  document.getElementById('addContactPopup').style.display = 'block';
+});
+window.closeAddContactPopup = function (e) {
+  if (!e || e.target.classList.contains('modal-overlay') || e.target.classList.contains('modal-close')) {
+    document.getElementById('addContactPopup').style.display = 'none';
+  }
+};
+document.getElementById('addContactForm').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  const form = e.target;
+  const data = Object.fromEntries(new FormData(form));
+  if (!data.phone) { alert('Phone is required'); return; }
+  const res = await fetch('/inbox-contact-add', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  const result = await res.json();
+  if (result.success) {
+    alert('Contact added!');
+    form.reset();
+    document.getElementById('addContactPopup').style.display = 'none';
+  } else {
+    alert('Error: ' + (result.error || 'Unknown error'));
+  }
+});
 
 // === Append a message to the conversation view ===
 function appendMessage(phone, body, direction, timestamp) {
