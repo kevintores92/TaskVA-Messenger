@@ -1043,14 +1043,15 @@ def import_list():
             # Get all columns from properties table
             c.execute("PRAGMA table_info(properties)")
             existing_cols = [col[1] for col in c.fetchall()]
-            # Add new columns if needed
+            # Add new columns if needed (skip if already exists)
             for key in row.keys():
                 if key not in existing_cols:
                     try:
                         c.execute(f"ALTER TABLE properties ADD COLUMN '{key}' TEXT")
                         existing_cols.append(key)
                     except Exception as e:
-                        print(f"[Import] Could not add column {key}: {e}")
+                        if "duplicate column name" not in str(e):
+                            print(f"[Import] Could not add column {key}: {e}")
             # Add count column if not present
             if 'count' not in existing_cols:
                 try:
@@ -1303,8 +1304,17 @@ def api_properties():
     count_params = []
     # ...existing code already builds threads above...
     # Get all rows
-    c.execute(f"SELECT * FROM properties ORDER BY count ASC")
-    rows = c.fetchall()
+    # Fallback to first column if 'count' does not exist
+    c.execute("PRAGMA table_info(properties)")
+    prop_cols = [row[1] for row in c.fetchall()]
+    order_col = 'count' if 'count' in prop_cols else prop_cols[0]
+    try:
+        c.execute(f"SELECT * FROM properties ORDER BY {order_col} ASC")
+        rows = c.fetchall()
+    except Exception as e:
+        print(f"[api_properties] Error fetching rows: {e}")
+        c.execute(f"SELECT * FROM properties")
+        rows = c.fetchall()
     columns = [desc[0] for desc in c.description]
     properties = [dict(zip(columns, r)) for r in rows]
     # Get total count
