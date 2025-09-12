@@ -1,3 +1,58 @@
+  function openReminderPopup(e, phone) {
+    e.stopPropagation();
+    document.getElementById('reminderPopup').style.display = 'block';
+    document.getElementById('reminderPhone').value = phone;
+  }
+
+  function closeReminderPopup(e) {
+    if (!e || e.target.classList.contains('modal-overlay') || e.target.classList.contains('modal-close')) {
+      document.getElementById('reminderPopup').style.display = 'none';
+    }
+  }
+
+  document.getElementById('reminderForm').addEventListener('submit', function(ev) {
+    ev.preventDefault();
+    const form = ev.target;
+    const data = {
+      phone: form.reminder_phone.value,
+      date: form.reminder_date.value,
+      time: form.reminder_time.value,
+      notes: form.reminder_notes.value,
+      sms: form.reminder_sms.value
+    };
+    fetch('/api/reminder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }).then(res => res.json()).then(resp => {
+      if (resp.success) {
+        alert('Reminder saved!');
+        closeReminderPopup();
+      } else {
+        alert('Failed to save reminder.');
+      }
+    });
+  });
+<!-- Reminder Popup -->
+<div id="reminderPopup" class="modal-popup" style="display:none;">
+  <div class="modal-overlay" onclick="closeReminderPopup(event)"></div>
+  <div class="modal-content">
+    <button class="modal-close" onclick="closeReminderPopup(event)">&times;</button>
+    <h3>⏰ Set Reminder</h3>
+    <form id="reminderForm">
+      <label>Date:</label>
+      <input type="date" name="reminder_date" required><br>
+      <label>Time:</label>
+      <input type="time" name="reminder_time" required><br>
+      <label>Notes:</label>
+      <textarea name="reminder_notes" rows="2"></textarea><br>
+      <label>SMS to Send:</label>
+      <textarea name="reminder_sms" rows="2" placeholder="Type SMS to send..."></textarea><br>
+      <input type="hidden" name="reminder_phone" id="reminderPhone">
+      <button type="submit" class="btn btn-primary">Save Reminder</button>
+    </form>
+  </div>
+</div>
 {% extends "base.html" %}
 {% block content %}
 
@@ -144,6 +199,9 @@
               </div>
             </div>
           </div>
+            <div class="thread-time" data-raw-timestamp="${thread.timestamp}">${thread.timestamp}</div>
+            <button class="reminder-btn" onclick="openReminderPopup(event, '${thread.phone}')" title="Set Reminder">⏰</button>
+          
         {% endfor %}
       </div>
     </div>

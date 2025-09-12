@@ -1,3 +1,26 @@
+@app.route('/notifications')
+def notifications():
+    return render_template('notifications.html')
+@app.route('/api/reminder', methods=['POST'])
+def api_reminder():
+    data = request.get_json()
+    phone = data.get('phone')
+    date = data.get('date')
+    time_ = data.get('time')
+    notes = data.get('notes')
+    sms = data.get('sms')
+    dt_str = f"{date} {time_}:00"
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("INSERT INTO reminders (phone, remind_at, notes, sms) VALUES (?, ?, ?, ?)", (phone, dt_str, notes, sms))
+        conn.commit()
+        conn.close()
+        # TODO: Add background job to send SMS at scheduled time
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"[Reminder] Error: {e}")
+        return jsonify({'success': False, 'error': str(e)})
 # TEST CHANGE: Deployment marker - 2025-09-11
 import os, sqlite3, threading, webbrowser, time, csv, io
 from datetime import datetime, timezone, timedelta
@@ -29,9 +52,31 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 ALLOWED_EXTENSIONS = {"csv"}
 
 
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "aceholdings_secret")
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+
+@app.route('/api/reminder', methods=['POST'])
+def api_reminder():
+    data = request.get_json()
+    phone = data.get('phone')
+    date = data.get('date')
+    time_ = data.get('time')
+    notes = data.get('notes')
+    sms = data.get('sms')
+    dt_str = f"{date} {time_}:00"
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("INSERT INTO reminders (phone, remind_at, notes, sms) VALUES (?, ?, ?, ?)", (phone, dt_str, notes, sms))
+        conn.commit()
+        conn.close()
+        # TODO: Add background job to send SMS at scheduled time
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"[Reminder] Error: {e}")
+        return jsonify({'success': False, 'error': str(e)})
 
 # Stop flag for batch control
 stop_batch = False

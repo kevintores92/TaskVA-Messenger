@@ -25,7 +25,18 @@ document.getElementById('uploadBtn').onclick = function() {
     // Simulate header extraction (replace with AJAX in production)
     const fakeHeaders = ['Name', 'Phone', 'Address', 'Tag'];
     const headersList = document.getElementById('headersList');
-    headersList.innerHTML = fakeHeaders.map(h => `<div><label>${h}</label> <select><option>Contact Name</option><option>Phone</option><option>Address</option><option>Tag</option></select></div>`).join('');
+        headersList.innerHTML = fakeHeaders.map(h => `<div><label>${h}</label> <select><option>Do not map this field</option><option>Contact Name</option><option>Phone</option><option>Address</option><option>Tag</option></select></div>`).join('');
+        // Add custom column button
+        const addCustomBtn = document.createElement('button');
+        addCustomBtn.textContent = 'Add Custom Column';
+        addCustomBtn.type = 'button';
+        addCustomBtn.style.margin = '10px 0';
+        addCustomBtn.onclick = function() {
+            const customDiv = document.createElement('div');
+            customDiv.innerHTML = `<input type='text' placeholder='Custom Column Name' style='margin-right:8px;'> <select><option>Do not map this field</option><option>Contact Name</option><option>Phone</option><option>Address</option><option>Tag</option></select>`;
+            headersList.appendChild(customDiv);
+        };
+        headersList.appendChild(addCustomBtn);
     document.getElementById('headerMapping').style.display = 'block';
 };
 document.getElementById('importBtn').onclick = function() {
