@@ -691,15 +691,21 @@ def load_kpi_rows(limit_days=60):
 
     delivery_rate = [round((d/s)*100,2) if s else 0 for s,d in zip(sent, delivered)]
 
-    # Latest day stats
-    latest = {"total_sent": 0, "total_delivered": 0, "total_replies": 0, "avg_reply_time": "N/A"}
-    if dates:
-        latest = {
-            "total_sent": sent[-1] if sent else 0,
-            "total_delivered": delivered[-1] if delivered else 0,
-            "total_replies": replies[-1] if replies else 0,
-            "avg_reply_time": "N/A"  # Not calculated here
-        }
+    # All-time stats
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) FROM messages WHERE direction LIKE 'outbound%'")
+    total_sent = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) FROM messages WHERE direction LIKE 'outbound%' AND status='delivered'")
+    total_delivered = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) FROM messages WHERE direction='inbound'")
+    total_replies = c.fetchone()[0]
+    latest = {
+        "total_sent": total_sent,
+        "total_delivered": total_delivered,
+        "total_replies": total_replies,
+        "avg_reply_time": "N/A"
+    }
 
     conn.close()
     return dates, sent, delivered, delivery_rate, replies, latest
@@ -975,39 +981,9 @@ def api_reminder():
 def dashboard():
     # Show stats for all time (no week selection)
     conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT COUNT(*) FROM messages WHERE direction='outbound'")
-    total_sent = c.fetchone()[0]
-    c.execute(
-        "SELECT COUNT(*) FROM messages WHERE direction='outbound' AND status='delivered'")
-    total_delivered = c.fetchone()[0]
-    c.execute("SELECT COUNT(*) FROM messages WHERE direction='inbound'")
-    total_replies = c.fetchone()[0]
-    avg_delivery_rate = round(
-        (total_delivered/total_sent)*100, 2) if total_sent else 0
-    response_rate = round((total_replies/total_sent) *
-                          100, 2) if total_sent else 0
-    latest = {
-        "total_sent": total_sent,
-        "total_delivered": total_delivered,
-        "total_replies": total_replies,
-        "avg_delivery_rate": avg_delivery_rate,
-        "response_rate": response_rate,
-        "avg_reply_time": "N/A"
-    }
-    conn.close()
+    dates, sent, delivered, delivery_rate, replies, latest = load_kpi_rows(limit_days=60)
     lead_breakdown = get_lead_breakdown()
     top_campaigns = get_top_campaigns()
-    # Ensure chart variables are always defined
-    dates = []
-    sent = []
-    delivered = []
-    delivery_rate = []
-    replies = []
-    # If you have a function to get these, replace with actual data
-    # Example: dates, sent, delivered, delivery_rate, replies = get_kpi_chart_data()
-
-
     return render_template(
         "dashboard.html",
         latest=latest,
