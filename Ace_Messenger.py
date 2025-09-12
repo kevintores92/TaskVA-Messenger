@@ -307,20 +307,29 @@ def get_threads(search=None, tag_filters=None, box=None, page=1, page_size=50):
             latest_timestamp = latest_row[2] if latest_row else latest_time
             twilio_number = latest_row[3] if latest_row else ""
 
-        # Fetch contact info
-        c.execute("SELECT Name, Address, tag, notes FROM contacts WHERE phone=?", (contact_phone,))
+        # Fetch contact info (fallbacks for missing columns)
+        c.execute("PRAGMA table_info(contacts)")
+        contact_cols = [row[1] for row in c.fetchall()]
+        c.execute(f"SELECT {', '.join(contact_cols)} FROM contacts WHERE phone=?", (contact_phone,))
         contact_row = c.fetchone()
-        name = contact_row[0] if contact_row else ""
-        address = contact_row[1] if contact_row else ""
-        tag = contact_row[2] if contact_row and len(contact_row) > 2 else ""
-        notes = contact_row[3] if contact_row and len(contact_row) > 3 else ""
-
+        name = ""
+        address = ""
+        tag = ""
+        notes = ""
+        contact_extra = ""
+        if contact_row:
+            contact_dict = dict(zip(contact_cols, contact_row))
+            name = contact_dict.get("Name", "") or contact_dict.get("name", "") or ""
+            address = contact_dict.get("Address", "") or contact_dict.get("address", "") or ""
+            tag = contact_dict.get("tag", "")
+            notes = contact_dict.get("notes", "")
+            # Build contact_extra from all columns except phone
+            contact_extra = " | ".join([str(v) for k, v in contact_dict.items() if k.lower() not in ("phone", "name", "address", "tag", "notes") and v and str(v).strip()])
         # Filter by box type
         if box == 'inbox' and latest_direction != 'inbound':
             continue
         if box == 'sent' and not str(latest_direction).startswith('outbound'):
             continue
-
         # Filter by tag
         if tag_filters:
             tag_val = (tag or "").strip().lower()
@@ -332,22 +341,15 @@ def get_threads(search=None, tag_filters=None, box=None, page=1, page_size=50):
                     match = True
             if not match:
                 continue
-
         # Filter by search
         if search and search.strip() and search.lower() not in (str(contact_phone) + str(name) + str(address)).lower():
             continue
-
         # Format timestamp
         dt = parser.parse(str(latest_timestamp)) if latest_timestamp else datetime.now()
         ts_formatted = dt.strftime('%Y-%m-%d %I:%M:%S %p CST')
-
         # Build thread entry
-        # Unread logic: mark as unread if latest message is inbound and not responded/read
         is_unread = False
-        # You may want to add logic to check if the message is responded/read
         if latest_direction == "inbound":
-            # Example: mark as unread if notes do not contain a reply or if tag is not 'Responded'
-            # You can adjust this logic as needed
             is_unread = True
         threads.append({
             "phone": contact_phone,
@@ -355,8 +357,9 @@ def get_threads(search=None, tag_filters=None, box=None, page=1, page_size=50):
             "address": address,
             "tag": tag,
             "notes": notes,
+            "contact_extra": contact_extra,
             "latest": latest_body,
-            "latest_direction": latest_direction,  # add this line
+            "latest_direction": latest_direction,
             "timestamp": ts_formatted,
             "twilio_number": twilio_number,
             "unread": is_unread
@@ -1076,23 +1079,15 @@ def import_list():
 def properties_main():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute(
-        "SELECT id, address, unit, city, state, zip FROM properties ORDER BY address ASC")
+    # Get all columns in properties table
+    c.execute("PRAGMA table_info(properties)")
+    columns = [row[1] for row in c.fetchall()]
+    # Get all rows
+    c.execute(f"SELECT {', '.join(columns)} FROM properties ORDER BY count ASC")
     rows = c.fetchall()
-    properties = [
-        {
-            "id": r[0],
-            "address": r[1],
-            "unit": r[2],
-            "city": r[3],
-            "state": r[4],
-            "zip": r[5],
-        }
-        for r in rows
-    ]
+    properties = [dict(zip(columns, r)) for r in rows]
     conn.close()
-    # TODO: Render template 'properties.html' with properties list
-    return render_template("properties.html", properties=properties)
+    return render_template("properties.html", properties=properties, columns=columns)
 
 # --- Property Account Page ---
 
@@ -1290,24 +1285,7 @@ def api_properties():
     # Count total
     count_query = "SELECT COUNT(*) FROM properties"
     count_params = []
-    if search:
-        count_query += " WHERE address LIKE ? OR city LIKE ? OR state LIKE ? OR zip LIKE ?"
-        count_params.extend([f"%{search}%"] * 4)
-    c.execute(count_query, count_params)
-    total_count = c.fetchone()[0]
-    # Main query
-    query = "SELECT id, address, unit, city, state, zip FROM properties"
-    params = []
-    if search:
-        query += " WHERE address LIKE ? OR city LIKE ? OR state LIKE ? OR zip LIKE ?"
-        params.extend([f"%{search}%"] * 4)
-    query += f" ORDER BY {sort} {order.upper()} LIMIT ? OFFSET ?"
-    params.extend([page_size, offset])
-    c.execute(query, params)
-    rows = c.fetchall()
-    properties = [
-        {
-            "id": r[0],
+    # ...existing code already builds threads above...
             "address": r[1],
             "unit": r[2],
             "city": r[3],

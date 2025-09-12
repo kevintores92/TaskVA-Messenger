@@ -22,73 +22,22 @@
 <table id="properties-table" class="professional-table">
     <thead>
         <tr>
-            <th>Campaign</th>
-            <th>Address</th>
-            <th>Zillow Link</th>
-            <th>Street Address</th>
-            <th>Unit</th>
-            <th>City</th>
-            <th>State</th>
-            <th>Zip</th>
-            <th>County</th>
-            <th>Owner Occupied</th>
-            <th>Owner 1 First Name</th>
-            <th>Owner 1 Last Name</th>
-            <th>Owner 2</th>
-            <th>Owner 2 First Name</th>
-            <th>Owner 2 Last Name</th>
-            <th>Mailing Care of Name</th>
-            <th>Mailing Address</th>
-            <th>Mailing Street Address</th>
-            <th>Mailing Unit</th>
-            <th>Mailing City</th>
-            <th>Mailing State</th>
-            <th>Mailing Zip</th>
-            <th>Mailing County</th>
-            <th>Phone</th>
-            <th>Line Type</th>
-            <th>Alt Phone 1</th>
-            <th>Alt Line Type 1</th>
-            <th>Alt Phone 2</th>
-            <th>APN</th>
-            <th>Alt Line Type 2</th>
-            <th>bd/ba</th>
-            <th>sq ft</th>
-            <th>yr-built</th>
-            <th>last-sale</th>
-            <th>last-sale-amount</th>
-            <th>Campaign</th>
-            <th>Unit #</th>
-            <th>Mailing Unit #</th>
-            <th>Do Not Mail</th>
-            <th>Property Type</th>
-            <th>Bedrooms</th>
-            <th>Total Bathrooms</th>
-            <th>Building Sqft</th>
-            <th>Lot Size Sqft</th>
-            <th>Effective Year Built</th>
-            <th>Total Assessed Value</th>
-            <th>Last Sale Recording Date</th>
-            <th>Last Sale Amount</th>
-            <th>Total Open Loans</th>
-            <th>Est. Remaining balance of Open Loans</th>
-            <th>Est. Value</th>
-            <th>Est. Loan-to-Value</th>
-            <th>Est. Equity</th>
-            <th>Total Condition</th>
-            <th>Interior Condition</th>
-            <th>Exterior Condition</th>
-            <th>Bathroom Condition</th>
-            <th>Kitchen Condition</th>
-            <th>Foreclosure Factor</th>
-            <th>MLS Status</th>
-            <th>MLS Date</th>
-            <th>MLS Amount</th>
-            <th>Lien Amount</th>
+            {% for col in columns %}
+                <th>{{ col|title }}</th>
+            {% endfor %}
             <th>Actions</th>
         </tr>
     </thead>
-    <tbody></tbody>
+    <tbody>
+        {% for prop in properties %}
+        <tr>
+            {% for col in columns %}
+                <td>{{ prop[col] }}</td>
+            {% endfor %}
+            <td><a href="/property/{{ prop['id'] }}">View</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
 </table>
 <div class="pagination-controls">
     <button id="prev-page">Prev</button>
