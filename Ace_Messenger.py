@@ -935,21 +935,23 @@ def delete_campaign(campaign_id):
     return redirect(url_for("direct_import"))
 
 
-
 @app.route("/")
 @app.route("/dashboard", methods=["GET"])
 def dashboard():
     # Show stats for all time (no week selection)
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-        c.execute("SELECT COUNT(*) FROM messages WHERE direction='outbound'")
+    c.execute("SELECT COUNT(*) FROM messages WHERE direction='outbound'")
     total_sent = c.fetchone()[0]
-        c.execute("SELECT COUNT(*) FROM messages WHERE direction='outbound' AND status='delivered'")
+    c.execute(
+        "SELECT COUNT(*) FROM messages WHERE direction='outbound' AND status='delivered'")
     total_delivered = c.fetchone()[0]
     c.execute("SELECT COUNT(*) FROM messages WHERE direction='inbound'")
     total_replies = c.fetchone()[0]
-    avg_delivery_rate = round((total_delivered/total_sent)*100,2) if total_sent else 0
-    response_rate = round((total_replies/total_sent)*100,2) if total_sent else 0
+    avg_delivery_rate = round(
+        (total_delivered/total_sent)*100, 2) if total_sent else 0
+    response_rate = round((total_replies/total_sent) *
+                          100, 2) if total_sent else 0
     latest = {
         "total_sent": total_sent,
         "total_delivered": total_delivered,
@@ -972,7 +974,7 @@ def dashboard():
 
 
     return render_template(
-        "kpi_dashboard.html",
+        "dashboard.html",
         latest=latest,
         lead_breakdown=lead_breakdown,
         top_campaigns=top_campaigns,
@@ -1383,7 +1385,7 @@ def inbox():
     from datetime import datetime
     current_date = datetime.now().strftime('%Y-%m-%d')
     return render_template(
-        "dashboard.html",
+        "inbox.html",
         threads=threads,
         search=search,
         box=box,
