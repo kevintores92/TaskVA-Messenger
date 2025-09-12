@@ -1,3 +1,13 @@
+    # Legacy contacts table for backward compatibility
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS contacts (
+            phone TEXT PRIMARY KEY,
+            name TEXT,
+            address TEXT,
+            tag TEXT,
+            notes TEXT
+        )
+    ''')
 # TEST CHANGE: Deployment marker - 2025-09-11
 import os, sqlite3, threading, webbrowser, time, csv, io
 from datetime import datetime, timezone, timedelta
@@ -302,11 +312,21 @@ def get_threads(search=None, tag_filters=None, box=None, page=1, page_size=50):
             twilio_number = latest_row[3] if latest_row else ""
 
         # Fetch contact info (fallbacks for missing columns)
-        c.execute("PRAGMA table_info(contacts)")
-        contact_cols = [row[1] for row in c.fetchall()]
-        quoted_cols = [f'"{col}"' for col in contact_cols]
-        c.execute(f"SELECT {', '.join(quoted_cols)} FROM contacts WHERE phone=?", (contact_phone,))
-        contact_row = c.fetchone()
+        # Try legacy contacts table first, fallback to contacts_new/phones
+        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='contacts'")
+        if c.fetchone():
+            c.execute("PRAGMA table_info(contacts)")
+            contact_cols = [row[1] for row in c.fetchall()]
+            quoted_cols = [f'"{col}"' for col in contact_cols]
+            c.execute(f"SELECT {', '.join(quoted_cols)} FROM contacts WHERE phone=?", (contact_phone,))
+            contact_row = c.fetchone()
+        else:
+            c.execute("PRAGMA table_info(contacts_new)")
+            contact_cols = [row[1] for row in c.fetchall()]
+            quoted_cols = [f'"{col}"' for col in contact_cols]
+            # Join phones and contacts_new
+            c.execute(f"SELECT {', '.join(quoted_cols)} FROM contacts_new JOIN contact_phones ON contacts_new.id = contact_phones.contact_id JOIN phones ON contact_phones.phone_id = phones.id WHERE phones.phone=?", (contact_phone,))
+            contact_row = c.fetchone()
         name = ""
         address = ""
         tag = ""
