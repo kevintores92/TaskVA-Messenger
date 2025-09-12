@@ -1030,18 +1030,38 @@ def import_list():
             row_id = c.lastrowid
             for key, value in row.items():
                 c.execute("INSERT INTO campaign_row_data (row_id, key, value) VALUES (?, ?, ?)", (row_id, key, value))
-            # --- Map to properties table ---
-            address = row.get('address') or row.get('Address') or row.get('street address') or row.get('Street Address')
-            unit = row.get('Unit') or row.get('unit') or row.get('Unit #') or row.get('Mailing Unit #')
-            city = row.get('city') or row.get('City') or row.get('Mailing City')
-            state = row.get('state') or row.get('State') or row.get('Mailing State')
-            zip_code = row.get('zip') or row.get('Zip') or row.get('Mailing Zip')
-            if address and city and state and zip_code:
+            # --- Insert all headers and row data into properties table ---
+            # Get all columns from properties table
+            c.execute("PRAGMA table_info(properties)")
+            existing_cols = [col[1] for col in c.fetchall()]
+            # Add new columns if needed
+            for key in row.keys():
+                if key not in existing_cols:
+                    try:
+                        c.execute(f"ALTER TABLE properties ADD COLUMN '{key}' TEXT")
+                        existing_cols.append(key)
+                    except Exception as e:
+                        print(f"[Import] Could not add column {key}: {e}")
+            # Add count column if not present
+            if 'count' not in existing_cols:
                 try:
-                    c.execute("INSERT OR IGNORE INTO properties (address, unit, city, state, zip) VALUES (?, ?, ?, ?, ?)",
-                              (address, unit, city, state, zip_code))
+                    c.execute("ALTER TABLE properties ADD COLUMN count INTEGER")
+                    existing_cols.append('count')
                 except Exception as e:
-                    print(f"[Import] Property insert error: {e}")
+                    print(f"[Import] Could not add count column: {e}")
+            # Prepare insert values
+            insert_cols = [col for col in row.keys()]
+            insert_vals = [row[col] for col in insert_cols]
+            # Add count value (row number)
+            insert_cols = ['count'] + insert_cols
+            insert_vals = [total_rows + 1] + insert_vals
+            # Build insert statement
+            placeholders = ','.join(['?' for _ in insert_cols])
+            col_names = ','.join([f'"{col}"' for col in insert_cols])
+            try:
+                c.execute(f"INSERT INTO properties ({col_names}) VALUES ({placeholders})", insert_vals)
+            except Exception as e:
+                print(f"[Import] Property insert error: {e}")
             total_rows += 1
         c.execute("UPDATE campaigns SET total_rows=? WHERE id=?", (total_rows, campaign_id))
         conn.commit()
@@ -1542,19 +1562,27 @@ def api_threads():
     # Only return minimal fields for frontend
     thread_list = []
     for t in threads:
-        thread_list.append({
-            "phone": t.get("phone"),
-            "name": t.get("name"),
-            "unread": t.get("unread"),
-            "tag": t.get("tag"),
-            "latest": t.get("latest"),
-            "timestamp": t.get("timestamp"),
+        # Build contact_extra string (e.g. address, tag, or other info)
+        contact_extra = ""
+        if address:
+            contact_extra += address
+        if tag:
+            contact_extra += f" | {tag}"
+        if notes:
+            contact_extra += f" | {notes}"
+        threads.append({
+            "phone": contact_phone,
+            "name": name,
+            "address": address,
+            "tag": tag,
+            "notes": notes,
+            "contact_extra": contact_extra,
+            "latest": latest_body,
+            "latest_direction": latest_direction,  # add this line
+            "timestamp": ts_formatted,
+            "twilio_number": twilio_number,
+            "unread": is_unread
         })
-    return jsonify({"threads": thread_list})
-    
-# --- API endpoint to mark thread as read/unread ---
-@app.route("/api/thread/read", methods=["POST"])
-def api_thread_read():
     data = request.get_json(force=True)
     phone = data.get("phone")
     read = data.get("read", True)
