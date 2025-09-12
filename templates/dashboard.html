@@ -3,22 +3,22 @@
 {% block content %}
 
 <main class="dashboard-grid-main" style="margin-left: 7%">
-  <section class="dashboard-grid-cards" style="margin: 24px 0 16px 0; display: flex; flex-direction: column; gap: 16px;">
+  <section class="dashboard-grid-cards" style="margin: 5% 0 16px 0; display: flex; flex-direction: column; gap: 16px;">
   <!-- Week dropdown removed. Showing all-time stats. -->
     <div class="dashboard-grid-kpis">
-      <div style="flex:1; min-width:120px;">
+      <div class="grid-card" style="flex:1; min-width:120px;">
         <b>Total Sent (all time)</b><br>{{ latest.total_sent }}
       </div>
-      <div style="flex:1; min-width:120px;">
+      <div class="grid-card" style="flex:1; min-width:120px;">
         <b>Delivered (all time)</b><br>{{ latest.total_delivered }}
       </div>
-      <div style="flex:1; min-width:120px;">
+      <div class="grid-card" style="flex:1; min-width:120px;">
         <b>Delivery Rate %</b><br>{{ latest.avg_delivery_rate }}
       </div>
-      <div style="flex:1; min-width:120px;">
+      <div class="grid-card" style="flex:1; min-width:120px;">
         <b>Replies (all time)</b><br>{{ latest.total_replies }}
       </div>
-      <div style="flex:1; min-width:120px;">
+      <div class="grid-card" style="flex:1; min-width:120px;">
         <b>Response Rate %</b><br>{{ latest.response_rate }}
       </div>
     </div>
