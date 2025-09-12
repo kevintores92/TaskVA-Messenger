@@ -1,120 +1,3 @@
-
-function showThreadActions(threadDiv) {
-  // Only affect the hovered thread
-  threadDiv.classList.add('thread-hover');
-  const actions = threadDiv.querySelector('.thread-actions');
-  if (actions) {
-    const callBtn = actions.querySelector('.call-btn');
-    const readBtn = actions.querySelector('.read-btn');
-    const timestamp = actions.querySelector('.thread-time');
-    if (callBtn) callBtn.style.display = 'inline-block';
-    if (readBtn) readBtn.style.display = 'inline-block';
-    if (timestamp) timestamp.style.visibility = 'hidden';
-  }
-}
-
-function hideThreadActions(threadDiv) {
-  threadDiv.classList.remove('thread-hover');
-  const actions = threadDiv.querySelector('.thread-actions');
-  if (actions) {
-    const callBtn = actions.querySelector('.call-btn');
-    const readBtn = actions.querySelector('.read-btn');
-    const timestamp = actions.querySelector('.thread-time');
-    if (callBtn) callBtn.style.display = 'none';
-    if (readBtn) readBtn.style.display = 'none';
-    if (timestamp) timestamp.style.visibility = 'visible';
-  }
-}
-
-function loadThread(phone) {
-  // Fetch conversation and update center/right panels
-  fetch(`/api/thread/${phone}`)
-    .then(res => res.json())
-    .then(data => {
-      // Update center panel
-      const messagesDiv = document.getElementById('messages');
-      if (messagesDiv && data.messages) {
-        messagesDiv.innerHTML = data.messages.map(msg => `
-          <div class="message ${msg.inbound ? 'inbound' : 'outbound'}">
-            <div class="message-content">
-              <div class="bubble">${msg.text}</div>
-              <div class="message-meta">
-                <div class="timestamp">${msg.timestamp}</div>
-              </div>
-            </div>
-          </div>
-        `).join('');
-      }
-      // Update right panel (contact-extra, notes, etc.)
-      if (data.contact_extra) {
-        const contactExtraDiv = document.getElementById('contact-extra');
-        if (contactExtraDiv) contactExtraDiv.innerHTML = data.contact_extra;
-      }
-      if (data.notes) {
-        const notesDiv = document.getElementById('notes');
-        if (notesDiv) notesDiv.value = data.notes;
-      }
-      // Update contact name
-      if (data.contact_name) {
-        const contactNameSpan = document.getElementById('contact-name');
-        if (contactNameSpan) contactNameSpan.textContent = data.contact_name;
-      }
-      if (data.thread_label) {
-        const threadLabel = document.getElementById('contact-thread-label');
-        if (threadLabel) threadLabel.textContent = data.thread_label;
-      }
-    });
-}
-
-function callContact(phone) {
-  // Implement call logic here
-  alert('Calling ' + phone);
-}
-// === Sidebar Popups ===
-document.addEventListener('DOMContentLoaded', function() {
-  // Phone Dialer Popup
-  const sidebarPhone = document.getElementById('sidebarPhone');
-  const phonePopup = document.getElementById('phonePopup');
-  if (sidebarPhone && phonePopup) {
-    sidebarPhone.addEventListener('click', function(e) {
-      e.preventDefault();
-      phonePopup.style.display = 'block';
-    });
-  }
-
-  // Text Popup (if implemented)
-  const sidebarText = document.getElementById('sidebarText');
-  const textPopup = document.getElementById('textPopup');
-  if (sidebarText && textPopup) {
-    sidebarText.addEventListener('click', function(e) {
-      e.preventDefault();
-      textPopup.style.display = 'block';
-    });
-  }
-
-  // Add Contact Popup
-  const sidebarAddContact = document.getElementById('sidebarAddContact');
-  const addContactPopup = document.getElementById('addContactPopup');
-  if (sidebarAddContact && addContactPopup) {
-    sidebarAddContact.addEventListener('click', function(e) {
-      e.preventDefault();
-      addContactPopup.style.display = 'block';
-    });
-  }
-
-  // Close popups on overlay click or close button
-  window.closeAddContactPopup = function(event) {
-    if (!event || event.target.classList.contains('modal-overlay') || event.target.classList.contains('modal-close')) {
-      addContactPopup.style.display = 'none';
-    }
-  };
-  window.closePhonePopup = function(event) {
-    if (!event || event.target.classList.contains('modal-overlay') || event.target.classList.contains('modal-close')) {
-      phonePopup.style.display = 'none';
-    }
-  };
-  // If you have a textPopup, add similar close logic
-});
 // === Assign tag from thread list ===
 
 // === Append a message to the conversation view ===
@@ -761,7 +644,24 @@ if (threadList) {
   });
 }
 
+function clearDateFilters() {
+  document.getElementById('from-date').value = "";
+  document.getElementById('to-date').value = "";
+  reloadThreads();
+}
 
+// === Auto-apply date filters ===
+document.addEventListener("DOMContentLoaded", () => {
+  const fromDate = document.getElementById("from-date");
+  const toDate = document.getElementById("to-date");
+
+  if (fromDate) {
+    fromDate.addEventListener("change", () => reloadThreads());
+  }
+  if (toDate) {
+    toDate.addEventListener("change", () => reloadThreads());
+  }
+});
 
 // === Thread count helper ===
 function updateThreadCount() {
@@ -954,34 +854,11 @@ function loadThread(phone) {
       setTimeout(() => { messagesDiv.scrollTop = messagesDiv.scrollHeight; }, 50);
 
       // Contact info, tags, notes
-      // Set name/number smaller
       document.getElementById("contact-name").innerText = data.csv_name || data.db_name || data.name || phone || "";
-      document.getElementById("contact-name").style.fontSize = "1rem";
-      document.getElementById("contact-thread-label").style.fontSize = "1rem";
       selectedtag = data.tag || "";
       rendertagChips(selectedtag);
-      document.getElementById("tag-menu").style.fontSize = "0.95rem";
-      document.getElementById("tag-chips").style.display = "inline-flex";
-      document.getElementById("tag-chips").style.gap = "4px";
       document.getElementById("notes").value = data.notes || "";
       updateThreadCount();
-
-      // Set address and link above name/number
-      let address = data.contact_all && (data.contact_all.Address || "");
-      let city = data.contact_all && (data.contact_all.city || "");
-      let state = data.contact_all && (data.contact_all.state || "");
-      let zip = data.contact_all && (data.contact_all.zip || "");
-      let fullAddress = address;
-      if (city) fullAddress += ", " + city;
-      if (state) fullAddress += ", " + state;
-      if (zip) fullAddress += " " + zip;
-      document.getElementById("contact-address").innerText = fullAddress;
-      // Link to property account details page (if address exists)
-      let propertyUrl = "#";
-      if (address && city && state && zip) {
-        propertyUrl = `/property_account?address=${encodeURIComponent(address)}&city=${encodeURIComponent(city)}&state=${encodeURIComponent(state)}&zip=${encodeURIComponent(zip)}`;
-      }
-      document.getElementById("contact-address-link").href = propertyUrl;
 
       // Extra contact info
       const contactExtra = document.getElementById("contact-extra");
@@ -1366,94 +1243,3 @@ function onTagChanged(phone, newTag) {
     showDripAssignmentPopup(phone);
   }
 }
-
-// Toggle read/unread status
-function toggleReadStatus(btn) {
-  const phone = btn.getAttribute('data-phone');
-  const unread = btn.getAttribute('data-unread') === '1';
-  fetch('/api/thread/read', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ phone: phone, read: !unread })
-  })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success) {
-        // Toggle unread attribute and title
-        btn.setAttribute('data-unread', unread ? '0' : '1');
-        btn.title = unread ? 'Mark as Read' : 'Mark as Unread';
-        btn.setAttribute('aria-label', btn.title);
-        // Toggle icon if present
-        const img1 = btn.querySelector('img');
-        if (img1) {
-          img1.src = '/static/' + (unread ? 'icon-envelope.png' : 'icon-envelope-open.png');
-        }
-        // Toggle unread badge
-        const threadDiv1 = btn.closest('.thread.card');
-        if (threadDiv1) {
-          const unreadBadge1 = threadDiv1.querySelector('.unread-badge');
-          if (unreadBadge1) {
-            if (unread) unreadBadge1.remove();
-          } else {
-            if (!unread) {
-              const badge1 = document.createElement('span');
-              badge1.className = 'unread-badge';
-              badge1.style = 'color:red; margin-left:6px;';
-              badge1.textContent = '●';
-              const nameLabel1 = threadDiv1.querySelector('.thread-name-label');
-              if (nameLabel1) nameLabel1.after(badge1);
-            }
-          }
-        }
-        // Optionally update UI without full reload
-        // Update unread badge and button title/icon
-        const threadDiv2 = btn.closest('.thread.card');
-        if (threadDiv2) {
-          const unreadBadge2 = threadDiv2.querySelector('.unread-badge');
-          if (unreadBadge2) {
-            if (unread) unreadBadge2.remove();
-          } else {
-            if (!unread) {
-              const badge2 = document.createElement('span');
-              badge2.className = 'unread-badge';
-              badge2.style = 'color:red; margin-left:6px;';
-              badge2.textContent = '●';
-              const nameLabel2 = threadDiv2.querySelector('.thread-name-label');
-              if (nameLabel2) nameLabel2.after(badge2);
-            }
-          }
-        }
-        // Update button title and ariaLabel
-        btn.title = unread ? 'Mark as Read' : 'Mark as Unread';
-        btn.ariaLabel = btn.title;
-        // Update icon if present
-        const img2 = btn.querySelector('img');
-        if (img2) {
-          img2.src = '/static/' + (unread ? 'icon-envelope.png' : 'icon-envelope-open.png');
-        }
-      }
-    });
-}
-
-// Mark thread as read when opened
-function loadThread(phone) {
-  fetch('/api/thread/read', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ phone: phone, read: true })
-  });
-  // ...existing loadThread logic...
-}
-
-
-// Show call button on hover
-document.querySelectorAll('.thread').forEach(function (thread) {
-  thread.addEventListener('mouseenter', function () {
-    const btn = thread.querySelector('.call-btn');
-    if (btn) btn.style.display = 'inline-block';
-  });
-  thread.addEventListener('mouseleave', function () {
-    const btn = thread.querySelector('.call-btn');
-    if (btn) btn.style.display = 'none';
-  });
-});

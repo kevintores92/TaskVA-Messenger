@@ -66,13 +66,11 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); box-sh
 .note-icon { position: relative; cursor: pointer; margin-left: 4px; }
 .note-tooltip { visibility: hidden; background: #333; color: #fff; border-radius: 6px; padding: 6px 10px; position: absolute; z-index: 100; left: 22px; top: -2px; min-width: 180px; max-width: 320px; white-space: pre-line; font-size: 0.95em; box-shadow: 0 2px 8px #0008; }
 .note-icon:hover .note-tooltip { visibility: visible; }
-.contact-section-header { 
-  padding: 1rem;
+.contact-section-header { padding: 1rem; 
   position: sticky;
   top: 0;
   z-index: 10;
 }
-
 #notes { min-width: 95%; border: 1px solid #e0e8f0; border-radius: 16px; padding: 5px; background: #fff; box-shadow: 0 2px 8px #0002; }
 
 /* Drip assignment popup styling */
@@ -355,11 +353,4 @@ input.contact-inline-input { width:90%; background: transparent; border: 1px sol
   box-shadow: 0 4px 16px rgba(0,0,0,0.25);
   pointer-events: none;
   opacity: 0.98;
-}
-/* shift all content right by sidebar width */
-main.shifted { margin-left: 5%; }
-
-/* on smaller screens (tablet/mobile), remove the shift so it centers */
-@media (max-width: 1024px) {
-  main.shifted { margin-left: 0; }
 }

@@ -33,7 +33,6 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "aceholdings_secret")
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
-
 # Stop flag for batch control
 stop_batch = False
 
@@ -55,7 +54,7 @@ TAG_ICONS = {
     
 def normalize_e164(num):
     s = ''.join(filter(str.isdigit, str(num)))
-    if s.startswith('1') and len(s) == 11:  # Normalize E.164 format
+    if s.startswith('1') and len(s) == 11:
         return '+' + s
     elif len(s) == 10:
         return '+1' + s
@@ -80,61 +79,17 @@ def normalize_timestamp(ts_str):
         print(f"Error normalizing timestamp: {ts_str} -> {e}")
         return ts_str
 
-        
-def get_kpi_chart_data():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    # Last 7 days
-    c.execute("""
-        SELECT strftime('%Y-%m-%d', timestamp) as day,
-               COUNT(CASE WHEN direction LIKE 'outbound%' THEN 1 END) as sent,
-               COUNT(CASE WHEN direction LIKE 'outbound%' AND status='delivered' THEN 1 END) as delivered,
-               COUNT(CASE WHEN direction='inbound' THEN 1 END) as replies
-        FROM messages
-        WHERE timestamp >= date('now', '-6 days')
-        GROUP BY day
-        ORDER BY day ASC
-    """)
-    week_rows = c.fetchall()
-    week_dates = [r[0] for r in week_rows]
-    week_sent = [r[1] for r in week_rows]
-    week_delivered = [r[2] for r in week_rows]
-    week_replies = [r[3] for r in week_rows]
-    week_delivery_rate = [round((r[2]/r[1])*100,2) if r[1] else 0 for r in week_rows]
 
-    # Last 30 days (Sent/Replies)
-    c.execute("""
-        SELECT strftime('%Y-%m-%d', timestamp) as day,
-               COUNT(CASE WHEN direction LIKE 'outbound%' THEN 1 END) as sent,
-               COUNT(CASE WHEN direction='inbound' THEN 1 END) as replies
-        FROM messages
-        WHERE timestamp >= date('now', '-29 days')
-        GROUP BY day
-        ORDER BY day ASC
-    """)
-    month_rows = c.fetchall()
-    month_dates = [r[0] for r in month_rows]
-    month_sent = [r[1] for r in month_rows]
-    month_replies = [r[2] for r in month_rows]
-    conn.close()
-    return {
-        'week_dates': week_dates,
-        'week_sent': week_sent,
-        'week_delivered': week_delivered,
-        'week_delivery_rate': week_delivery_rate,
-        'week_replies': week_replies,
-        'month_dates': month_dates,
-        'month_sent': month_sent,
-        'month_replies': month_replies
-    }
-    
+        # Example before inserting into DB
+        raw_ts = message["timestamp"]  # from Twilio API
+        normalized_ts = normalize_timestamp(raw_ts)
+        message["timestamp"] = normalized_ts
 
-def jinja2_strftime(value, format='%b %d'):
-    if isinstance(value, datetime):
-        return value.strftime(format)
-    return value
-
-app.jinja_env.filters['strftime'] = jinja2_strftime
+        # Now insert message dict into DB
+        db_cursor.execute("""
+            INSERT INTO messages (phone, body, timestamp, ...)
+            VALUES (?, ?, ?, ...)
+        """, (message["phone"], message["body"], message["timestamp"], ...))
 
 def get_caller_id_for_phone(phone):
     phone = normalize_e164(phone)
@@ -1006,20 +961,26 @@ def dashboard():
     conn.close()
     lead_breakdown = get_lead_breakdown()
     top_campaigns = get_top_campaigns()
-    kpi_data = get_kpi_chart_data()
+    # Ensure chart variables are always defined
+    dates = []
+    sent = []
+    delivered = []
+    delivery_rate = []
+    replies = []
+    # If you have a function to get these, replace with actual data
+    # Example: dates, sent, delivered, delivery_rate, replies = get_kpi_chart_data()
+
+
     return render_template(
-        "kpi_dashboard.html",
+        "dashboard.html",
         latest=latest,
         lead_breakdown=lead_breakdown,
         top_campaigns=top_campaigns,
-        dates=kpi_data['week_dates'],
-        sent=kpi_data['week_sent'],
-        delivered=kpi_data['week_delivered'],
-        delivery_rate=kpi_data['week_delivery_rate'],
-        replies=kpi_data['week_replies'],
-        month_dates=kpi_data['month_dates'],
-        month_sent=kpi_data['month_sent'],
-        month_replies=kpi_data['month_replies']
+        dates=dates,
+        sent=sent,
+        delivered=delivered,
+        delivery_rate=delivery_rate,
+        replies=replies
     )
     
 
@@ -1412,8 +1373,6 @@ def inbox():
     unanswered_count = len([t for t in all_threads if t.get("latest_direction") == "inbound" and not t.get("responded")])
     reminders_count = 0  # later query reminders table
     no_tags_count = len([t for t in all_threads if not t.get("tag")])
-    from datetime import datetime
-    current_date = datetime.now().strftime('%Y-%m-%d')
     return render_template(
         "dashboard.html",
         threads=threads,
@@ -1429,8 +1388,7 @@ def inbox():
         unread_count=unread_count,
         unanswered_count=unanswered_count,
         reminders_count=reminders_count,
-        no_tags_count=no_tags_count,
-        current_date=current_date
+        no_tags_count=no_tags_count
     )
 
 
