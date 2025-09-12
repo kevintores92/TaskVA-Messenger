@@ -115,11 +115,14 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-const dates = {{ dates|tojson }};
-const sent = {{ sent|tojson }};
-const delivered = {{ delivered|tojson }};
-const delivery_rate = {{ delivery_rate|tojson }};
-const replies = {{ replies|tojson }};
+const dates = {{ dates_7|tojson }};
+const sent = {{ sent_7|tojson }};
+const delivered = {{ delivered_7|tojson }};
+const delivery_rate = {{ delivery_rate_7|tojson }};
+const replies = {{ replies_7|tojson }};
+const dates30 = {{ dates_30|tojson }};
+const sent30 = {{ sent_30|tojson }};
+const replies30 = {{ replies_30|tojson }};
 
 // Lead Breakdown Donut
 const leadBreakdownData = {
@@ -203,7 +206,7 @@ new Chart(document.getElementById('repliesChart'), {
 // Line chart last 30 days
 new Chart(document.getElementById('lineChart'), {
   type: 'line',
-  data: { labels: dates, datasets: [{ label: 'Sent', data: sent }, { label: 'Replies', data: replies }] },
+  data: { labels: dates30, datasets: [{ label: 'Sent', data: sent30 }, { label: 'Replies', data: replies30 }] },
   options: { responsive: true, maintainAspectRatio: false, aspectRatio: 1.8 }
 });
 </script>

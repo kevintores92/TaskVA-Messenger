@@ -981,7 +981,9 @@ def api_reminder():
 def dashboard():
     # Show stats for all time (no week selection)
     conn = sqlite3.connect(DB_PATH)
-    dates, sent, delivered, delivery_rate, replies, latest = load_kpi_rows(limit_days=60)
+    # For most charts, show last 7 days; for Sent/Replies chart, show last 30 days
+    dates_7, sent_7, delivered_7, delivery_rate_7, replies_7, latest = load_kpi_rows(limit_days=7)
+    dates_30, sent_30, delivered_30, delivery_rate_30, replies_30, _ = load_kpi_rows(limit_days=30)
     lead_breakdown = get_lead_breakdown()
     top_campaigns = get_top_campaigns()
     return render_template(
@@ -989,11 +991,14 @@ def dashboard():
         latest=latest,
         lead_breakdown=lead_breakdown,
         top_campaigns=top_campaigns,
-        dates=dates,
-        sent=sent,
-        delivered=delivered,
-        delivery_rate=delivery_rate,
-        replies=replies
+        dates_7=dates_7,
+        sent_7=sent_7,
+        delivered_7=delivered_7,
+        delivery_rate_7=delivery_rate_7,
+        replies_7=replies_7,
+        dates_30=dates_30,
+        sent_30=sent_30,
+        replies_30=replies_30
     )
     
 
@@ -1067,9 +1072,15 @@ def properties_main():
     # Get all columns in properties table
     c.execute("PRAGMA table_info(properties)")
     columns = [row[1] for row in c.fetchall()]
-    # Get all rows
-    c.execute(f"SELECT {', '.join(columns)} FROM properties ORDER BY count ASC")
-    rows = c.fetchall()
+    # If 'count' is missing, fallback to first column for ordering
+    order_col = 'count' if 'count' in columns else columns[0]
+    try:
+        c.execute(f"SELECT {', '.join(columns)} FROM properties ORDER BY {order_col} ASC")
+        rows = c.fetchall()
+    except Exception as e:
+        print(f"[Properties] Error fetching rows: {e}")
+        c.execute(f"SELECT {', '.join(columns)} FROM properties")
+        rows = c.fetchall()
     properties = [dict(zip(columns, r)) for r in rows]
     conn.close()
     return render_template("properties.html", properties=properties, columns=columns)
