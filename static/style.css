@@ -18,9 +18,8 @@
   --fast: 0.12s cubic-bezier(.4,0,.2,1);
   --normal: 0.38s cubic-bezier(.4,0,.2,1);
   --font-base: 1rem;
-  --font-family: 'Montserrat', 'Segoe UI', Arial, sans-serif;
-  --font-heading: 'Poppins', 'Montserrat', 'Segoe UI', Arial, sans-serif;
-  --font-paragraph: 'Montserrat', 'Segoe UI', Arial, sans-serif;
+  --font-heading: 'Montserrat', 'Segoe UI', Arial, sans-serif;
+  --font-paragraph: 'Poppins', 'Montserrat', 'Segoe UI', Arial, sans-serif;
   --heading-weight: 700;
   --heading-spacing: 0.03em;
   --line-height-heading: 1.18;
@@ -147,7 +146,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); box-sh
 @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
-.main-content { padding: var(--padding); margin-left: -60px; transition: margin-left 0.3s ease; }
+.main-content { padding: var(--padding); margin-left: 60px; transition: margin-left 0.3s ease; }
 /* --- 3-Column Layout --- */
 #container-3col { display: flex; flex-direction: row; height: 100vh; overflow: hidden;; transition: margin-left 0.3s ease; }
 #left, #center, #right-panel { min-width: 0; box-sizing: border-box; padding: 8px; background-color: #f9fafb; }
@@ -173,7 +172,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); box-sh
 }
 .thread-time { display: flex; color: #607d8b; font-size: 0.85em; }
 .thread-preview {
-  font-size: 1.01rem;
+  font-size: 0.95em;
   color: #444;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -203,10 +202,13 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); box-sh
 .note-icon { position: relative; cursor: pointer; margin-left: 4px; }
 .note-tooltip { visibility: hidden; background: #333; color: #fff; border-radius: 6px; padding: 6px 10px; position: absolute; z-index: 100; left: 22px; top: -2px; min-width: 180px; max-width: 320px; white-space: pre-line; font-size: 0.95em; box-shadow: 0 2px 8px #0008; }
 .note-icon:hover .note-tooltip { visibility: visible; }
-.contact-section-header { padding: 1rem; 
+.contact-section-header {
+  padding: 1rem;
   position: sticky;
   top: 0;
   z-index: 10;
+  background: #f4f7f9;
+  border-bottom: 2px solid #ddd;
 }
 #notes { min-width: 95%; border: 1px solid #e0e8f0; border-radius: 16px; padding: 5px; background: #fff; box-shadow: 0 2px 8px #0002; }
 

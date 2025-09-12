@@ -81,7 +81,16 @@
   </div>
   <!-- RIGHT PANEL -->
   <div id="right-panel" class="mobile-hidden">
-    <div id="contact-extra"><!-- populated by loadThread; edit form will be injected here --></div>
+    <div class="contact-tabs">
+      <button id="tab-contact-info" class="tab-btn active" onclick="showContactTab('info')">Contact Info</button>
+      <button id="tab-activity-log" class="tab-btn" onclick="showContactTab('activity')">Activity Log</button>
+    </div>
+    <div id="contact-tab-info" class="tab-panel active">
+      <div id="contact-extra"><!-- populated by loadThread; edit form will be injected here --></div>
+    </div>
+    <div id="contact-tab-activity" class="tab-panel" style="display:none;">
+      <div id="activity-log"><!-- Activity log will be injected here --></div>
+    </div>
     <div id="notes-panel" class="meta-section">
       <textarea id="notes" rows="5" placeholder="Notes..."></textarea>
     </div>

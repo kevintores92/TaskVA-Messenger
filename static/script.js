@@ -1,3 +1,60 @@
+// === Activity Log Population ===
+function populateActivityLog(phone) {
+  fetch('/thread/' + encodeURIComponent(phone))
+    .then(r => r.json())
+    .then(data => {
+      const logDiv = document.getElementById('activity-log');
+      if (!logDiv) return;
+      if (!data.messages || !data.messages.length) {
+        logDiv.innerHTML = '<div class="text-muted">No activity found for this contact.</div>';
+        return;
+      }
+      let html = '<ul class="activity-list">';
+      data.messages.forEach(msg => {
+        html += `<li><span class="activity-time">${msg.timestamp}</span> <span class="activity-dir">${msg.is_outbound ? 'Sent' : 'Received'}</span>: <span class="activity-body">${msg.body}</span></li>`;
+      });
+      html += '</ul>';
+      logDiv.innerHTML = html;
+    });
+}
+
+// Hook tab switching to load activity log
+window.showContactTab = function(tab) {
+  const infoTab = document.getElementById('contact-tab-info');
+  const activityTab = document.getElementById('contact-tab-activity');
+  const btnInfo = document.getElementById('tab-contact-info');
+  const btnActivity = document.getElementById('tab-activity-log');
+  if (tab === 'info') {
+    infoTab.style.display = 'block';
+    activityTab.style.display = 'none';
+    btnInfo.classList.add('active');
+    btnActivity.classList.remove('active');
+  } else {
+    infoTab.style.display = 'none';
+    activityTab.style.display = 'block';
+    btnInfo.classList.remove('active');
+    btnActivity.classList.add('active');
+    if (window.currentPhone) populateActivityLog(window.currentPhone);
+  }
+}
+// === Right Panel Tab Switching ===
+function showContactTab(tab) {
+  const infoTab = document.getElementById('contact-tab-info');
+  const activityTab = document.getElementById('contact-tab-activity');
+  const btnInfo = document.getElementById('tab-contact-info');
+  const btnActivity = document.getElementById('tab-activity-log');
+  if (tab === 'info') {
+    infoTab.style.display = 'block';
+    activityTab.style.display = 'none';
+    btnInfo.classList.add('active');
+    btnActivity.classList.remove('active');
+  } else {
+    infoTab.style.display = 'none';
+    activityTab.style.display = 'block';
+    btnInfo.classList.remove('active');
+    btnActivity.classList.add('active');
+  }
+}
 document.addEventListener("DOMContentLoaded", () => {
   // === Dialer: Keypad + Direct Call ===
   window.appendDigit = function (d) {

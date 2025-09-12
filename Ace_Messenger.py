@@ -942,9 +942,9 @@ def dashboard():
     # Show stats for all time (no week selection)
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("SELECT COUNT(*) FROM messages WHERE direction LIKE 'outbound%'")
+        c.execute("SELECT COUNT(*) FROM messages WHERE direction='outbound'")
     total_sent = c.fetchone()[0]
-    c.execute("SELECT COUNT(*) FROM messages WHERE direction LIKE 'outbound%' AND status='delivered'")
+        c.execute("SELECT COUNT(*) FROM messages WHERE direction='outbound' AND status='delivered'")
     total_delivered = c.fetchone()[0]
     c.execute("SELECT COUNT(*) FROM messages WHERE direction='inbound'")
     total_replies = c.fetchone()[0]
@@ -1283,6 +1283,12 @@ def token():
         api_key_sid = os.environ.get('TWILIO_API_KEY_SID')
         api_key_secret = os.environ.get('TWILIO_API_KEY_SECRET')
         twiml_app_sid = os.environ.get('TWILIO_TWIML_APP_SID')
+        print("[Twilio Token Debug] ENV VARS:")
+        print(f"TWILIO_ACCOUNT_SID: {TWILIO_ACCOUNT_SID}")
+        print(f"TWILIO_AUTH_TOKEN: {TWILIO_AUTH_TOKEN}")
+        print(f"TWILIO_API_KEY_SID: {api_key_sid}")
+        print(f"TWILIO_API_KEY_SECRET: {api_key_secret}")
+        print(f"TWILIO_TWIML_APP_SID: {twiml_app_sid}")
         missing_vars = []
         if not TWILIO_ACCOUNT_SID:
             missing_vars.append('TWILIO_ACCOUNT_SID')
@@ -1305,6 +1311,7 @@ def token():
             incoming_allow=True
         )
         token.add_grant(voice_grant)
+        print("[Twilio Token Debug] Token generated successfully.")
         return jsonify(token=token.to_jwt().decode('utf-8'), identity=identity)
     except Exception as e:
         print(f"[Twilio Token Error] {e}")
