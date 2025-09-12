@@ -56,7 +56,7 @@
       <div class="thread-time" style="margin-bottom:4px; text-align:right; min-width:80px; color:#607d8b; font-size:0.85em;">
         {% set ts = thread.timestamp %}
         {% if ts %}
-      <div class="thread-time">{{ thread.timestamp|strftime('%b %d') if thread.timestamp else '' }}</div>
+  <div class="thread-time" data-raw-timestamp="{{ thread.timestamp }}">{{ thread.timestamp if thread.timestamp else '' }}</div>
         {% endif %}
       </div>
       <div style="display:flex;align-items:center;gap:8px;">

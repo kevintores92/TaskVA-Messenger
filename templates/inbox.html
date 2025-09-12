@@ -78,7 +78,7 @@
           <div class="thread-preview thread-body">${thread.latest}</div>
         </div>
         <div class="thread-actions">
-          <div class="thread-time">${thread.timestamp}</div>
+          <div class="thread-time" data-raw-timestamp="${thread.timestamp}">${thread.timestamp}</div>
         </div>
       `;
       div.onclick = function(e) {
@@ -154,6 +154,26 @@
     });
     // ...existing loadThread logic...
   }
+
+  // Format timestamps as 'Sep 10' in thread list and messages
+  function formatTimestamp(ts) {
+    if (!ts) return '';
+    let d = new Date(ts.replace(/-/g, '/').split(' ')[0]);
+    if (isNaN(d.getTime())) return ts;
+    const month = d.toLocaleString('en-US', { month: 'short' });
+    const day = d.getDate();
+    return `${month} ${day}`;
+  }
+  function updateTimestamps() {
+    document.querySelectorAll('.thread-time[data-raw-timestamp]').forEach(el => {
+      el.textContent = formatTimestamp(el.getAttribute('data-raw-timestamp'));
+    });
+    document.querySelectorAll('.timestamp[data-raw-timestamp]').forEach(el => {
+      el.textContent = formatTimestamp(el.getAttribute('data-raw-timestamp'));
+    });
+  }
+  document.addEventListener('DOMContentLoaded', updateTimestamps);
+
   </script>
 
   <!-- CENTER PANEL -->
@@ -173,7 +193,7 @@
             <div class="message-content">
               <div class="bubble">{{ msg.text }}</div>
               <div class="message-meta">
-                <div class="timestamp">{{ msg.timestamp|strftime('%b %d') if msg.timestamp else '' }}</div>
+                <div class="timestamp" data-raw-timestamp="{{ msg.timestamp }}">{{ msg.timestamp if msg.timestamp else '' }}</div>
               </div>
             </div>
           </div>
