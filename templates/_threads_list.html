@@ -4,12 +4,12 @@
        onclick="if(!event.target.closest('.thread-tag-wrapper')) loadThread('{{ thread.phone }}')">
 
     <div class="thread-info">
-      <div class="thread-name" style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-        <div>
-          <b class="thread-name-label">
+      <div class="thread-name" style="display: flex; align-items: center; justify-content: space-between; width: 100%; line-height: 1.1;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <b class="thread-name-label" style="font-size:1.08em;line-height:1.1;">
             {% if thread.name %}{{ thread.name }}{% else %}{{ thread.phone }}{% endif %}
           </b>
-          <span class="thread-phone" style="display:none;">{{ thread.phone }}</span>
+          <span class="contact-extra" style="color:#888;font-size:0.95em;">{{ thread.contact_extra or '' }}</span>
           {% if thread.unread %}
             <span class="unread-badge" style="color:red; margin-left:6px;">●</span>
           {% endif %}
@@ -47,6 +47,8 @@
                 <span class="note-tooltip">{{ thread.notes }}</span>
               </span>
             {% endif %}
+            <!-- Reminder Icon -->
+            <span class="reminder-icon" title="Set Reminder" onclick="event.stopPropagation(); openReminderPopup(event, '{{ thread.phone }}')" style="cursor:pointer;margin-left:6px;">⏰</span>
           </span>
         </div>
       </div>

@@ -1,39 +1,5 @@
-  function openReminderPopup(e, phone) {
-    e.stopPropagation();
-    document.getElementById('reminderPopup').style.display = 'block';
-    document.getElementById('reminderPhone').value = phone;
-  }
-
-  function closeReminderPopup(e) {
-    if (!e || e.target.classList.contains('modal-overlay') || e.target.classList.contains('modal-close')) {
-      document.getElementById('reminderPopup').style.display = 'none';
-    }
-  }
-
-  document.getElementById('reminderForm').addEventListener('submit', function(ev) {
-    ev.preventDefault();
-    const form = ev.target;
-    const data = {
-      phone: form.reminder_phone.value,
-      date: form.reminder_date.value,
-      time: form.reminder_time.value,
-      notes: form.reminder_notes.value,
-      sms: form.reminder_sms.value
-    };
-    fetch('/api/reminder', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    }).then(res => res.json()).then(resp => {
-      if (resp.success) {
-        alert('Reminder saved!');
-        closeReminderPopup();
-      } else {
-        alert('Failed to save reminder.');
-      }
-    });
-  });
-<!-- Reminder Popup -->
+<!-- Reminder Popup (moved below for clarity) -->
+{% block reminder_popup %}
 <div id="reminderPopup" class="modal-popup" style="display:none;">
   <div class="modal-overlay" onclick="closeReminderPopup(event)"></div>
   <div class="modal-content">
@@ -53,6 +19,42 @@
     </form>
   </div>
 </div>
+{% endblock %}
+<script>
+function openReminderPopup(e, phone) {
+  e.stopPropagation();
+  document.getElementById('reminderPopup').style.display = 'block';
+  document.getElementById('reminderPhone').value = phone;
+}
+function closeReminderPopup(e) {
+  if (!e || e.target.classList.contains('modal-overlay') || e.target.classList.contains('modal-close')) {
+    document.getElementById('reminderPopup').style.display = 'none';
+  }
+}
+document.getElementById('reminderForm').addEventListener('submit', function(ev) {
+  ev.preventDefault();
+  const form = ev.target;
+  const data = {
+    phone: form.reminder_phone.value,
+    date: form.reminder_date.value,
+    time: form.reminder_time.value,
+    notes: form.reminder_notes.value,
+    sms: form.reminder_sms.value
+  };
+  fetch('/api/reminder', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  }).then(res => res.json()).then(resp => {
+    if (resp.success) {
+      alert('Reminder saved!');
+      closeReminderPopup();
+    } else {
+      alert('Failed to save reminder.');
+    }
+  });
+});
+</script>
 {% extends "base.html" %}
 {% block content %}
 
@@ -115,9 +117,7 @@
   // ...existing code...
   
 
-  function toggleReadStatus(btn) {
-    const phone = btn.getAttribute('data-phone');
-    const unread = btn.getAttribute('data-unread') === '1';
+  // ...existing code...
     fetch('/api/thread/read', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
