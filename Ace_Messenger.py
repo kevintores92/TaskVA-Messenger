@@ -275,8 +275,7 @@ def get_threads(search=None, tag_filters=None, box=None, page=1, page_size=50):
     if not box:
         box = 'all'
 
-    offset = (page - 1) * page_size
-    c.execute("SELECT phone, MAX(timestamp) as latest_time FROM messages GROUP BY phone ORDER BY latest_time DESC LIMIT ? OFFSET ?", (page_size, offset))
+    c.execute("SELECT phone, MAX(timestamp) as latest_time FROM messages GROUP BY phone ORDER BY latest_time DESC")
     phones = c.fetchall()
     threads = []
 
@@ -1007,6 +1006,18 @@ def import_list():
             row_id = c.lastrowid
             for key, value in row.items():
                 c.execute("INSERT INTO campaign_row_data (row_id, key, value) VALUES (?, ?, ?)", (row_id, key, value))
+            # --- Map to properties table ---
+            address = row.get('address') or row.get('Address') or row.get('street address') or row.get('Street Address')
+            unit = row.get('Unit') or row.get('unit') or row.get('Unit #') or row.get('Mailing Unit #')
+            city = row.get('city') or row.get('City') or row.get('Mailing City')
+            state = row.get('state') or row.get('State') or row.get('Mailing State')
+            zip_code = row.get('zip') or row.get('Zip') or row.get('Mailing Zip')
+            if address and city and state and zip_code:
+                try:
+                    c.execute("INSERT OR IGNORE INTO properties (address, unit, city, state, zip) VALUES (?, ?, ?, ?, ?)",
+                              (address, unit, city, state, zip_code))
+                except Exception as e:
+                    print(f"[Import] Property insert error: {e}")
             total_rows += 1
         c.execute("UPDATE campaigns SET total_rows=? WHERE id=?", (total_rows, campaign_id))
         conn.commit()

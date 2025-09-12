@@ -3,11 +3,15 @@
 <h2>Import List</h2>
     <link rel="stylesheet" href="/static/custom-margins.css">
 <form id="csvUploadForm" method="POST" enctype="multipart/form-data">
-    <label for="campaign_name">Campaign Name:</label>
-    <input type="text" name="campaign_name" id="campaign_name" placeholder="Enter campaign name" required><br><br>
-    <label for="file">Select CSV file:</label>
-    <input type="file" name="file" id="file" accept=".csv" required><br><br>
-    <button type="button" id="uploadBtn">Upload</button>
+        <label for="campaign_name">Campaign Name:</label>
+        <input type="text" name="campaign_name" id="campaign_name" placeholder="Enter campaign name" required><br><br>
+        <label for="file">Select CSV file:</label>
+        <input type="file" name="file" id="file" accept=".csv" required><br><br>
+        <button type="button" id="uploadBtn">Upload</button>
+        <div id="progressBarContainer" style="display:none; margin-top:10px;">
+            <div id="progressBar" style="width:0%; height:18px; background:#2563eb; border-radius:6px; transition:width 0.3s;"></div>
+            <span id="progressText" style="margin-left:8px; font-size:0.95em;"></span>
+        </div>
 </form>
 <div id="headerMapping" style="display:none; margin-top:20px;">
     <h3>Map CSV Headers</h3>
@@ -27,6 +31,34 @@ document.getElementById('uploadBtn').onclick = function() {
 document.getElementById('importBtn').onclick = function() {
     alert('Importing with mapped headers...');
     // TODO: AJAX to backend for import
+};
+// Progress bar AJAX upload
+document.getElementById('uploadBtn').onclick = function() {
+    const fileInput = document.getElementById('file');
+    const campaignName = document.getElementById('campaign_name').value;
+    if (!fileInput.files.length) return alert('Please select a CSV file.');
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    formData.append('campaign_name', campaignName);
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/import-list', true);
+    xhr.upload.onprogress = function(e) {
+        if (e.lengthComputable) {
+            const percent = Math.round((e.loaded / e.total) * 100);
+            document.getElementById('progressBarContainer').style.display = 'block';
+            document.getElementById('progressBar').style.width = percent + '%';
+            document.getElementById('progressText').textContent = percent + '%';
+        }
+    };
+    xhr.onload = function() {
+        if (xhr.status === 200) {
+            document.getElementById('progressText').textContent = 'Upload complete!';
+            setTimeout(function() { window.location.href = '/direct-import'; }, 1200);
+        } else {
+            alert('Upload failed: ' + xhr.responseText);
+        }
+    };
+    xhr.send(formData);
 };
 </script>
     <div class="container list-main">
