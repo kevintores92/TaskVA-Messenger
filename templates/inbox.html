@@ -173,7 +173,7 @@
             <div class="message-content">
               <div class="bubble">{{ msg.text }}</div>
               <div class="message-meta">
-                <div class="timestamp">{{ msg.timestamp }}</div>
+                <div class="timestamp">{{ msg.timestamp|strftime('%b %d') if msg.timestamp else '' }}</div>
               </div>
             </div>
           </div>
@@ -190,10 +190,19 @@
   
   <!-- RIGHT PANEL -->
   <div id="right-panel" class="mobile-hidden">
-  <div id="zillow-icon" style="display:flex;align-items:center;justify-content:center;padding:12px 0;"></div>
-    <div id="contact-extra"><!-- populated by loadThread; edit form will be injected here --></div>
-    <div id="notes-panel" class="meta-section">
-      <textarea id="notes" rows="5" placeholder="Notes..."></textarea>
+    <div class="tab-buttons">
+      <button id="tab-contact-info" class="tab-btn active" onclick="showContactTab('info')">Contact Info</button>
+      <button id="tab-activity-log" class="tab-btn" onclick="showContactTab('activity')">Activity Log</button>
+    </div>
+    <div id="contact-tab-info" class="tab-panel active">
+      <div id="zillow-icon" style="display:flex;align-items:center;justify-content:center;padding:12px 0;"></div>
+      <div id="contact-extra"><!-- populated by loadThread; edit form will be injected here --></div>
+      <div id="notes-panel" class="meta-section">
+        <textarea id="notes" rows="5" placeholder="Notes..."></textarea>
+      </div>
+    </div>
+    <div id="contact-tab-activity" class="tab-panel" style="display:none;">
+      <div id="activity-log"><!-- populated by populateActivityLog --></div>
     </div>
   </div>
 
