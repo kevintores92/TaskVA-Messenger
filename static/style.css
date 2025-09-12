@@ -166,7 +166,7 @@
 /* --- Root Variables: Upgraded Professional Theme --- */
 :root {
   --bg: #f6f7f9;
-  --bg-alt: #eef1f6;
+  --bg-alt: #a5aebe;
   --bg-white: #f8fafc;
   --text: #23272f;
   --text-muted: #7a8599;
@@ -179,7 +179,6 @@
   --shadow-light: 0 2px 10px rgba(36, 42, 54, 0.07);
   --shadow-medium: 0 3px 10px rgba(36, 42, 54, 0.12);
   --radius: 12px;
-  --padding: 1.2rem;
   --fast: 0.12s cubic-bezier(.4,0,.2,1);
   --normal: 0.38s cubic-bezier(.4,0,.2,1);
   --font-base: 1rem;
