@@ -1,38 +1,68 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="property-account">
-    <div class="left-panel" style="width:70%;float:left;">
-        <h2>Property: {{ property.address }}{% if property.unit %} Unit {{ property.unit }}{% endif %}, {{ property.city }}, {{ property.state }} {{ property.zip }}</h2>
-        <div class="tabs">
-            <button onclick="showTab('lead')">Lead Details</button>
-            <button onclick="showTab('tasks')">Tasks & Appts</button>
-            <button onclick="showTab('portfolio')">Portfolio</button>
+<div class="property-account" style="display:flex;gap:0;">
+    <div class="left-panel" style="width:70%;padding-right:2%;">
+        <h2 style="margin-bottom:18px;">Property: {{ property.address }}{% if property.unit %} Unit {{ property.unit }}{% endif %}, {{ property.city }}, {{ property.state }} {{ property.zip }}</h2>
+        <!-- Contact Card Grid -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <h3 style="margin:0;">Contacts</h3>
+            <button onclick="showAddContactModal()" style="margin-left:auto;">+ Add Contact</button>
         </div>
-        <div id="tab-lead" class="tab-content">
-            {% include "property_contacts_activity.html" %}
-        </div>
-        <div id="tab-tasks" class="tab-content" style="display:none;">
-            <h3>Tasks & Appointments</h3>
-            <p>Coming soon...</p>
-        </div>
-        <div id="tab-portfolio" class="tab-content" style="display:none;">
-            <h3>Portfolio</h3>
+        <div class="contact-card-grid">
             {% for contact in contacts %}
-                <h4>{{ contact.first_name }} {{ contact.last_name }}'s Portfolio</h4>
-                <ul>
-                {% for prop in contact.portfolio %}
-                    <li>{{ prop.address }}{% if prop.unit %} Unit {{ prop.unit }}{% endif %}, {{ prop.city }}, {{ prop.state }} {{ prop.zip }}</li>
-                {% endfor %}
-                </ul>
+            <div class="contact-card">
+                <div style="font-weight:600;font-size:15px;">{{ contact.first_name }} {{ contact.last_name }}</div>
+                <div style="font-size:13px;color:#555;">{{ contact.type }}</div>
+                <div style="font-size:13px;margin-top:4px;">Phones: {{ contact.phones|join(', ') }}</div>
+                <div class="contact-actions">
+                    <img src="/static/icons/call.svg" class="contact-action-icon" title="Call" onclick="callContact('{{ contact.phones[0] }}')">
+                    <img src="/static/icons/text.svg" class="contact-action-icon" title="Text" onclick="textContact('{{ contact.phones[0] }}')">
+                    <img src="/static/icons/email.svg" class="contact-action-icon" title="Email" onclick="emailContact('{{ contact.email }}')">
+                </div>
+            </div>
             {% endfor %}
         </div>
+        <!-- Property Details Grid -->
+        <div class="property-details-grid">
+            <div class="property-detail-group">
+                <h4>Basic Info</h4>
+                <div class="property-detail-row"><span class="property-detail-label">Address</span><span class="property-detail-value">{{ property.address }}</span></div>
+                <div class="property-detail-row"><span class="property-detail-label">Unit</span><span class="property-detail-value">{{ property.unit }}</span></div>
+                <div class="property-detail-row"><span class="property-detail-label">City</span><span class="property-detail-value">{{ property.city }}</span></div>
+                <div class="property-detail-row"><span class="property-detail-label">State</span><span class="property-detail-value">{{ property.state }}</span></div>
+                <div class="property-detail-row"><span class="property-detail-label">Zip</span><span class="property-detail-value">{{ property.zip }}</span></div>
+                <div class="property-detail-row"><span class="property-detail-label">County</span><span class="property-detail-value">{{ property.county }}</span></div>
+            </div>
+            <div class="property-detail-group">
+                <h4>Owner Info</h4>
+                <div class="property-detail-row"><span class="property-detail-label">Owner Occupied</span><span class="property-detail-value">{{ property.owner_occupied }}</span></div>
+                <div class="property-detail-row"><span class="property-detail-label">Owner 1</span><span class="property-detail-value">{{ property.owner1_first_name }} {{ property.owner1_last_name }}</span></div>
+                <div class="property-detail-row"><span class="property-detail-label">Owner 2</span><span class="property-detail-value">{{ property.owner2_first_name }} {{ property.owner2_last_name }}</span></div>
+            </div>
+            <div class="property-detail-group">
+                <h4>Valuation</h4>
+                <div class="property-detail-row"><span class="property-detail-label">Estimated Value</span><span class="property-detail-value">${{ property.estimated_value }}</span></div>
+                <div class="property-detail-row"><span class="property-detail-label">Estimated Equity</span><span class="property-detail-value">${{ property.estimated_equity }}</span></div>
+                <div class="property-detail-row"><span class="property-detail-label">Total Liens</span><span class="property-detail-value">${{ property.estimated_total_liens }}</span></div>
+            </div>
+            <div class="property-detail-group">
+                <h4>Property Info</h4>
+                <div class="property-detail-row"><span class="property-detail-label">Type</span><span class="property-detail-value">{{ property.property_type }}</span></div>
+                <div class="property-detail-row"><span class="property-detail-label">Beds</span><span class="property-detail-value">{{ property.bedrooms }}</span></div>
+                <div class="property-detail-row"><span class="property-detail-label">Baths</span><span class="property-detail-value">{{ property.total_bathrooms }}</span></div>
+                <div class="property-detail-row"><span class="property-detail-label">Area</span><span class="property-detail-value">{{ property.sq_ft }} Sq Ft</span></div>
+                <div class="property-detail-row"><span class="property-detail-label">Lot Size</span><span class="property-detail-value">{{ property.lot_size_sqft }} Sq Ft</span></div>
+                <div class="property-detail-row"><span class="property-detail-label">Year Built</span><span class="property-detail-value">{{ property.yr_built }}</span></div>
+            </div>
+            <!-- Add more groups as needed for other headers -->
+        </div>
     </div>
-    <div class="right-panel" style="width:28%;float:right;">
+    <div class="right-panel" style="width:30%;min-width:340px;">
         <h3>Activity Log</h3>
-        <ul id="activity-log-list">
-        {% for log in activity_log %}
+        <ul id="activity-log-list" class="activity-log-list">
+            {% for log in activity_log %}
             <li>{{ log.timestamp }} - <strong>{{ log.activity_type }}</strong>: {{ log.details }} ({{ log.user }})</li>
-        {% endfor %}
+            {% endfor %}
         </ul>
         <form id="addActivityLogForm">
             <input name="activity_type" placeholder="Type (e.g. Note, Edit)" required><br>
@@ -40,8 +70,56 @@
             <input name="user" placeholder="User" required><br>
             <button type="submit">Add Log</button>
         </form>
+        <div class="sticky-notes-section">
+            <textarea placeholder="Add notes for this property..."></textarea>
+            <button>Save Note</button>
+        </div>
     </div>
 </div>
+<script>
+function showAddContactModal() {
+    // Implement modal logic or reuse existing modal
+}
+function callContact(phone) {
+    alert('Call ' + phone);
+}
+function textContact(phone) {
+    alert('Text ' + phone);
+}
+function emailContact(email) {
+    alert('Email ' + email);
+}
+document.getElementById('addActivityLogForm').onsubmit = function(e) {
+    e.preventDefault();
+    const form = e.target;
+    const data = {
+        property_id: {{ property.id }},
+        activity_type: form.activity_type.value,
+        details: form.details.value,
+        user: form.user.value
+    };
+    fetch('/property_activity_log/add', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    }).then(r => r.json()).then(res => {
+        if(res.success) {
+            fetch(`/api/property_activity_log?property_id=${data.property_id}`)
+                .then(r => r.json())
+                .then(logs => {
+                    const ul = document.getElementById('activity-log-list');
+                    ul.innerHTML = '';
+                    logs.forEach(log => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `${log.timestamp} - <strong>${log.activity_type}</strong>: ${log.details} (${log.user})`;
+                        ul.appendChild(li);
+                    });
+                });
+            form.reset();
+        }
+    });
+};
+</script>
 <script>
 function showTab(tab) {
     document.getElementById('tab-lead').style.display = (tab === 'lead') ? 'block' : 'none';

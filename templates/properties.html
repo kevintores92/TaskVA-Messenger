@@ -18,19 +18,84 @@
     <button onclick="showAddPropertyForm()">Add Property</button>
 </div>
     <div class="container properties-main">
-<table id="properties-table">
+<div class="properties-table-wrapper">
+<table id="properties-table" class="professional-table">
     <thead>
         <tr>
+            <th>Campaign</th>
             <th>Address</th>
+            <th>Zillow Link</th>
+            <th>Street Address</th>
             <th>Unit</th>
             <th>City</th>
             <th>State</th>
             <th>Zip</th>
+            <th>County</th>
+            <th>Owner Occupied</th>
+            <th>Owner 1 First Name</th>
+            <th>Owner 1 Last Name</th>
+            <th>Owner 2</th>
+            <th>Owner 2 First Name</th>
+            <th>Owner 2 Last Name</th>
+            <th>Mailing Care of Name</th>
+            <th>Mailing Address</th>
+            <th>Mailing Street Address</th>
+            <th>Mailing Unit</th>
+            <th>Mailing City</th>
+            <th>Mailing State</th>
+            <th>Mailing Zip</th>
+            <th>Mailing County</th>
+            <th>Phone</th>
+            <th>Line Type</th>
+            <th>Alt Phone 1</th>
+            <th>Alt Line Type 1</th>
+            <th>Alt Phone 2</th>
+            <th>APN</th>
+            <th>Alt Line Type 2</th>
+            <th>bd/ba</th>
+            <th>sq ft</th>
+            <th>yr-built</th>
+            <th>last-sale</th>
+            <th>last-sale-amount</th>
+            <th>Campaign</th>
+            <th>Unit #</th>
+            <th>Mailing Unit #</th>
+            <th>Do Not Mail</th>
+            <th>Property Type</th>
+            <th>Bedrooms</th>
+            <th>Total Bathrooms</th>
+            <th>Building Sqft</th>
+            <th>Lot Size Sqft</th>
+            <th>Effective Year Built</th>
+            <th>Total Assessed Value</th>
+            <th>Last Sale Recording Date</th>
+            <th>Last Sale Amount</th>
+            <th>Total Open Loans</th>
+            <th>Est. Remaining balance of Open Loans</th>
+            <th>Est. Value</th>
+            <th>Est. Loan-to-Value</th>
+            <th>Est. Equity</th>
+            <th>Total Condition</th>
+            <th>Interior Condition</th>
+            <th>Exterior Condition</th>
+            <th>Bathroom Condition</th>
+            <th>Kitchen Condition</th>
+            <th>Foreclosure Factor</th>
+            <th>MLS Status</th>
+            <th>MLS Date</th>
+            <th>MLS Amount</th>
+            <th>Lien Amount</th>
             <th>Actions</th>
         </tr>
     </thead>
     <tbody></tbody>
 </table>
+<div class="pagination-controls">
+    <button id="prev-page">Prev</button>
+    <span id="page-info"></span>
+    <button id="next-page">Next</button>
+</div>
+</div>
 <div id="addPropertyModal" style="display:none;">
     <h3>Add Property</h3>
     <form id="addPropertyForm">
@@ -44,29 +109,105 @@
     </form>
 </div>
 <script>
-function loadProperties() {
+let currentPage = 1;
+let pageSize = 20;
+function loadProperties(page = 1) {
     const search = document.getElementById('search').value;
     const sort = document.getElementById('sort').value;
     const order = document.getElementById('order').value;
-    fetch(`/api/properties?search=${encodeURIComponent(search)}&sort=${sort}&order=${order}`)
+    fetch(`/api/properties?search=${encodeURIComponent(search)}&sort=${sort}&order=${order}&page=${page}&page_size=${pageSize}`)
         .then(r => r.json())
         .then(data => {
             const tbody = document.querySelector('#properties-table tbody');
             tbody.innerHTML = '';
-            data.forEach(prop => {
+            data.properties.forEach(prop => {
                 const tr = document.createElement('tr');
+                // Fill all columns, fallback to blank if missing
                 tr.innerHTML = `
-                    <td>${prop.address}</td>
+                    <td>${prop.campaign || ''}</td>
+                    <td>${prop.address || ''}</td>
+                    <td>${prop.zillow_link || ''}</td>
+                    <td>${prop.street_address || ''}</td>
                     <td>${prop.unit || ''}</td>
-                    <td>${prop.city}</td>
-                    <td>${prop.state}</td>
-                    <td>${prop.zip}</td>
+                    <td>${prop.city || ''}</td>
+                    <td>${prop.state || ''}</td>
+                    <td>${prop.zip || ''}</td>
+                    <td>${prop.county || ''}</td>
+                    <td>${prop.owner_occupied || ''}</td>
+                    <td>${prop.owner1_first_name || ''}</td>
+                    <td>${prop.owner1_last_name || ''}</td>
+                    <td>${prop.owner2 || ''}</td>
+                    <td>${prop.owner2_first_name || ''}</td>
+                    <td>${prop.owner2_last_name || ''}</td>
+                    <td>${prop.mailing_care_of_name || ''}</td>
+                    <td>${prop.mailing_address || ''}</td>
+                    <td>${prop.mailing_street_address || ''}</td>
+                    <td>${prop.mailing_unit || ''}</td>
+                    <td>${prop.mailing_city || ''}</td>
+                    <td>${prop.mailing_state || ''}</td>
+                    <td>${prop.mailing_zip || ''}</td>
+                    <td>${prop.mailing_county || ''}</td>
+                    <td>${prop.phone || ''}</td>
+                    <td>${prop.line_type || ''}</td>
+                    <td>${prop.alt_phone_1 || ''}</td>
+                    <td>${prop.alt_line_type_1 || ''}</td>
+                    <td>${prop.alt_phone_2 || ''}</td>
+                    <td>${prop.apn || ''}</td>
+                    <td>${prop.alt_line_type_2 || ''}</td>
+                    <td>${prop.bd_ba || ''}</td>
+                    <td>${prop.sq_ft || ''}</td>
+                    <td>${prop.yr_built || ''}</td>
+                    <td>${prop.last_sale || ''}</td>
+                    <td>${prop.last_sale_amount || ''}</td>
+                    <td>${prop.campaign2 || ''}</td>
+                    <td>${prop.unit_num || ''}</td>
+                    <td>${prop.mailing_unit_num || ''}</td>
+                    <td>${prop.do_not_mail || ''}</td>
+                    <td>${prop.property_type || ''}</td>
+                    <td>${prop.bedrooms || ''}</td>
+                    <td>${prop.total_bathrooms || ''}</td>
+                    <td>${prop.building_sqft || ''}</td>
+                    <td>${prop.lot_size_sqft || ''}</td>
+                    <td>${prop.effective_year_built || ''}</td>
+                    <td>${prop.total_assessed_value || ''}</td>
+                    <td>${prop.last_sale_recording_date || ''}</td>
+                    <td>${prop.last_sale_amount2 || ''}</td>
+                    <td>${prop.total_open_loans || ''}</td>
+                    <td>${prop.est_remaining_balance_open_loans || ''}</td>
+                    <td>${prop.est_value || ''}</td>
+                    <td>${prop.est_loan_to_value || ''}</td>
+                    <td>${prop.est_equity || ''}</td>
+                    <td>${prop.total_condition || ''}</td>
+                    <td>${prop.interior_condition || ''}</td>
+                    <td>${prop.exterior_condition || ''}</td>
+                    <td>${prop.bathroom_condition || ''}</td>
+                    <td>${prop.kitchen_condition || ''}</td>
+                    <td>${prop.foreclosure_factor || ''}</td>
+                    <td>${prop.mls_status || ''}</td>
+                    <td>${prop.mls_date || ''}</td>
+                    <td>${prop.mls_amount || ''}</td>
+                    <td>${prop.lien_amount || ''}</td>
                     <td><a href="/property/${prop.id}">View</a></td>
                 `;
                 tbody.appendChild(tr);
             });
+            // Pagination controls
+            currentPage = data.page;
+            pageSize = data.page_size;
+            const total = data.total_count;
+            const pageInfo = document.getElementById('page-info');
+            pageInfo.textContent = `Page ${currentPage} of ${Math.ceil(total/pageSize)}`;
+            document.getElementById('prev-page').disabled = currentPage <= 1;
+            document.getElementById('next-page').disabled = currentPage >= Math.ceil(total/pageSize);
         });
 }
+document.getElementById('prev-page').onclick = function() {
+    if(currentPage > 1) loadProperties(currentPage - 1);
+};
+document.getElementById('next-page').onclick = function() {
+    loadProperties(currentPage + 1);
+};
+window.onload = function() { loadProperties(1); };
 function showAddPropertyForm() {
     document.getElementById('addPropertyModal').style.display = 'block';
 }

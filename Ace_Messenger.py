@@ -1262,14 +1262,27 @@ def api_properties():
     search = request.args.get("search", "")
     sort = request.args.get("sort", "address")
     order = request.args.get("order", "asc")
+    page = int(request.args.get("page", 1))
+    page_size = int(request.args.get("page_size", 20))
+    offset = (page - 1) * page_size
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
+    # Count total
+    count_query = "SELECT COUNT(*) FROM properties"
+    count_params = []
+    if search:
+        count_query += " WHERE address LIKE ? OR city LIKE ? OR state LIKE ? OR zip LIKE ?"
+        count_params.extend([f"%{search}%"] * 4)
+    c.execute(count_query, count_params)
+    total_count = c.fetchone()[0]
+    # Main query
     query = "SELECT id, address, unit, city, state, zip FROM properties"
     params = []
     if search:
         query += " WHERE address LIKE ? OR city LIKE ? OR state LIKE ? OR zip LIKE ?"
         params.extend([f"%{search}%"] * 4)
-    query += f" ORDER BY {sort} {order.upper()}"
+    query += f" ORDER BY {sort} {order.upper()} LIMIT ? OFFSET ?"
+    params.extend([page_size, offset])
     c.execute(query, params)
     rows = c.fetchall()
     properties = [
@@ -1284,7 +1297,7 @@ def api_properties():
         for r in rows
     ]
     conn.close()
-    return jsonify(properties)
+    return jsonify({"properties": properties, "total_count": total_count, "page": page, "page_size": page_size})
 
 # --- API endpoint for property activity log (for notification center) ---
 @app.route("/api/property_activity_log", methods=["GET"])
