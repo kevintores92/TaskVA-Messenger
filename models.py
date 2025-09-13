@@ -109,7 +109,7 @@ class Contact(Base):
     mls_amount = Column(String)
     lien_amount = Column(String)
     current_tag = Column(String)  # Current tag for property
-    __table_args__ = (UniqueConstraint('street_address', 'unit', 'city', 'state', 'zip', name='_property_uc'),)
+    # No unique constraint on property address; uniqueness should be enforced in properties table
 
 class PropertyContact(Base):
     __tablename__ = 'property_contacts'
