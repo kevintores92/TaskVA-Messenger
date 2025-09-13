@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Leads Kanban</h2>
+<div class="kanban-board">
+    <div class="kanban-column" id="new-leads">
+        <h3>New Leads</h3>
+        <div class="kanban-cards" id="new-leads-cards"></div>
+    </div>
+    <div class="kanban-column" id="warm-leads">
+        <h3>Warm Leads</h3>
+        <div class="kanban-cards" id="warm-leads-cards"></div>
+    </div>
+    <div class="kanban-column" id="no-contact-made">
+        <h3>No Contact Made (Call)</h3>
+        <div class="kanban-cards" id="no-contact-made-cards"></div>
+    </div>
+    <div class="kanban-column" id="contact-made">
+        <h3>Contact Made</h3>
+        <div class="kanban-cards" id="contact-made-cards"></div>
+    </div>
+    <div class="kanban-column" id="appointment-set">
+        <h3>Appointment Set</h3>
+        <div class="kanban-cards" id="appointment-set-cards"></div>
+    </div>
+    <div class="kanban-column" id="offers-made">
+        <h3>Offers Made</h3>
+        <div class="kanban-cards" id="offers-made-cards"></div>
+    </div>
+    <div class="kanban-column" id="under-contract">
+        <h3>Under Contract</h3>
+        <div class="kanban-cards" id="under-contract-cards"></div>
+    </div>
+    <div class="kanban-column" id="dispo">
+        <h3>Dispo</h3>
+        <div class="kanban-cards" id="dispo-cards"></div>
+    </div>
+    <div class="kanban-column" id="closed">
+        <h3>Closed</h3>
+        <div class="kanban-cards" id="closed-cards"></div>
+    </div>
+</div>
+<script src="/static/script.js"></script>
+{% endblock %}
