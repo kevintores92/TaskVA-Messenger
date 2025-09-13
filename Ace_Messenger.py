@@ -1,3 +1,6 @@
+import eventlet
+eventlet.monkey_patch()
+
 import os, sqlite3, threading, webbrowser, time, csv, io
 from datetime import datetime, timezone, timedelta
 from dateutil import parser, tz
@@ -10,7 +13,6 @@ from twilio.jwt.access_token import AccessToken
 from twilio.jwt.access_token.grants import VoiceGrant
 from sms_sender_core import send_sms_batch
 from werkzeug.utils import secure_filename
-# ── CONFIG ─────────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
