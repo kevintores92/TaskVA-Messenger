@@ -1,3 +1,94 @@
+/* --- Contacts Page Styling --- */
+.contacts-container {
+  max-width: 900px;
+  margin: 40px auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+  padding: 32px 40px;
+}
+.contacts-header {
+  font-size: 2rem;
+  font-weight: 600;
+  margin-bottom: 24px;
+  color: #2c3e50;
+}
+.contacts-filter-form {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+.contacts-filter-form label {
+  font-weight: 500;
+  color: #34495e;
+}
+.contacts-filter-form select,
+.contacts-filter-form button {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  font-size: 1rem;
+  background: #f8f9fa;
+  margin-left: 8px;
+}
+.contacts-filter-form button {
+  background: #007bff;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.contacts-filter-form button:hover {
+  background: #0056b3;
+}
+.contacts-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 32px;
+}
+.contacts-table th, .contacts-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #eaeaea;
+  text-align: left;
+}
+.contacts-table th {
+  background: #f4f6fb;
+  font-weight: 600;
+  color: #2c3e50;
+}
+.contacts-table tr:hover {
+  background: #f0f8ff;
+}
+.contacts-actions {
+  display: flex;
+  gap: 10px;
+}
+.contacts-actions a,
+.contacts-actions button {
+  padding: 5px 12px;
+  border-radius: 5px;
+  font-size: 0.95rem;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+.contacts-actions a {
+  background: #28a745;
+  color: #fff;
+}
+.contacts-actions a:hover {
+  background: #218838;
+}
+.contacts-actions button {
+  background: #dc3545;
+  color: #fff;
+}
+.contacts-actions button:hover {
+  background: #c82333;
+}
 /* Professional Table Styles */
 .properties-table-wrapper {
   overflow-x: auto;
@@ -230,7 +321,6 @@ p, span, label {
   font-size: 1.05rem;
   color: var(--text);
   line-height: var(--line-height-body);
-  margin-bottom: 0.8em;
   word-spacing: 0.04em;
   letter-spacing: 0.01em;
 }

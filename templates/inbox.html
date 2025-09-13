@@ -95,8 +95,8 @@ document.getElementById('reminderForm').addEventListener('submit', function(ev) 
           {% set start_idx = ((page - 1) * page_size) + 1 %}
           {% set end_idx = start_idx + threads|length - 1 %}
           <span>{{ start_idx }}-{{ end_idx }} of {{ total_threads }}</span>
-          <button {% if page <= 1 %}disabled{% endif %} onclick="window.location='?page={{ page - 1 }}'" style="margin:0 8px">&#60;</button>
-          <button {% if end_idx >= total_threads %}disabled{% endif %} onclick="window.location='?page={{ page + 1 }}'">&#62;</button>
+          <button {% if page <= 1 %}disabled{% endif %} onclick="goToPage({{ page - 1 }})" style="margin:0 8px">&#60;</button>
+          <button {% if end_idx >= total_threads %}disabled{% endif %} onclick="goToPage({{ page + 1 }})">&#62;</button>
         </div>
       {% if box != 'inbox' %}
       <span class="mission-control-header">
@@ -177,11 +177,40 @@ document.getElementById('reminderForm').addEventListener('submit', function(ev) 
   // Format timestamps as 'Sep 10' in thread list and messages
   function formatTimestamp(ts) {
     if (!ts) return '';
-    let d = new Date(ts.replace(/-/g, '/').split(' ')[0]);
+    // Try to parse ts as 'YYYY MMM DD | h:mm AM/PM' or ISO
+    let d;
+    // Try ISO first
+    if (/\d{4}-\d{2}-\d{2}/.test(ts)) {
+      d = new Date(ts.replace(/-/g, '/'));
+    } else {
+      // Try 'YYYY MMM DD | h:mm AM/PM'
+      const match = ts.match(/(\d{4}) ([A-Za-z]{3}) (\d{2})/);
+      if (match) {
+        const [_, year, monthStr, day] = match;
+        const month = new Date(Date.parse(monthStr + ' 1, 2000')).getMonth();
+        d = new Date(year, month, day);
+      } else {
+        d = new Date(ts);
+      }
+    }
     if (isNaN(d.getTime())) return ts;
-    const month = d.toLocaleString('en-US', { month: 'short' });
-    const day = d.getDate();
-    return `${month} ${day}`;
+    const now = new Date();
+    if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()) {
+      // Today: show h:mm AM/PM
+      let timeMatch = ts.match(/\|\s*(\d{1,2}:\d{2} [AP]M)/);
+      if (timeMatch) return timeMatch[1];
+      return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    } else if (d.getFullYear() === now.getFullYear()) {
+      // This year: show 'Sep 12'
+      const month = d.toLocaleString('en-US', { month: 'short' });
+      const day = d.getDate();
+      return `${month} ${day}`;
+    } else {
+      // Other year: show '2024 Sep 12'
+      const month = d.toLocaleString('en-US', { month: 'short' });
+      const day = d.getDate();
+      return `${d.getFullYear()} ${month} ${day}`;
+    }
   }
   function updateTimestamps() {
     document.querySelectorAll('.thread-time[data-raw-timestamp]').forEach(el => {

@@ -13,6 +13,7 @@
   <div class="sidebar">
     <ul>
   <li><a href="/"><span aria-hidden="true">💻</span><span>Dashboard</span></a></li>
+  <li><a href="/leads"><span aria-hidden="true">🗂️</span><span>Leads Kanban</span></a></li>
   <li><a href="/direct-import"><span aria-hidden="true">📤</span><span>Direct Import</span></a></li>
   <li><a href="/properties"><span aria-hidden="true">🏠</span><span>Properties</span></a></li>
       <li><a href="/inbox"><span aria-hidden="true">📥</span><span>Inbox</span></a></li>
@@ -33,14 +34,19 @@
       <button class="modal-close" onclick="closeAddContactPopup(event)">&times;</button>
   <h3>➕ Add New Contact</h3>
       <form id="addContactForm">
-  <input type="text" name="name" placeholder="Name" class="dialer-input" />
-  <input type="text" name="phone" placeholder="Phone (required)" class="dialer-input" required />
-  <input type="text" name="address" placeholder="Address" class="dialer-input" />
-  <input type="text" name="mailing_address" placeholder="Mailing Address" class="dialer-input" />
-  <input type="text" name="campaign" placeholder="Campaign" class="dialer-input" />
-  <input type="text" name="tag" placeholder="Tag" class="dialer-input" />
-  <textarea name="notes" placeholder="Notes" class="dialer-input"></textarea>
-  <button type="submit" class="dialer-call">Add Contact</button>
+        <input type="text" name="name" placeholder="Name" class="dialer-input" />
+        <input type="text" name="phone" placeholder="Phone (required)" class="dialer-input" required />
+        <input type="text" name="address" placeholder="Address" class="dialer-input" />
+        <input type="text" name="mailing_address" placeholder="Mailing Address" class="dialer-input" />
+        <input type="text" name="campaign" placeholder="Campaign" class="dialer-input" />
+        <select name="tag" class="dialer-input">
+          <option value="">Select Tag</option>
+          {% for tag in tags %}
+            <option value="{{ tag }}">{{ tag }}</option>
+          {% endfor %}
+        </select>
+        <textarea name="notes" placeholder="Notes" class="dialer-input"></textarea>
+        <button type="submit" class="dialer-call">Add Contact</button>
       </form>
     </div>
   </div>

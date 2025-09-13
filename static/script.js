@@ -11,7 +11,7 @@ function populateActivityLog(phone) {
       }
       let html = '<ul class="activity-list">';
       data.messages.forEach(msg => {
-        html += `<li><span class="activity-time">${msg.timestamp}</span> <span class="activity-dir">${msg.is_outbound ? 'Sent' : 'Received'}</span>: <span class="activity-body">${msg.body}</span></li>`;
+        html += `<li><span class="activity-time">${formatTimestamp(msg.timestamp)}</span> <span class="activity-dir">${msg.is_outbound ? 'Sent' : 'Received'}</span>: <span class="activity-body">${msg.body}</span></li>`;
       });
       html += '</ul>';
       logDiv.innerHTML = html;
@@ -208,6 +208,8 @@ document.getElementById('addContactForm').addEventListener('submit', async funct
 
 // === Append a message to the conversation view ===
 function appendMessage(phone, body, direction, timestamp) {
+  // Format timestamp for display
+  const displayTimestamp = formatTimestamp(timestamp);
   // Only append if the thread is currently open
   if (!currentPhone || currentPhone !== phone) return;
 
@@ -577,18 +579,26 @@ function goToPage(pageNumber) {
   const searchEl = document.getElementById('search');
   if (searchEl && searchEl.value) params.set('search', searchEl.value);
 
-  fetch('/threads?' + params.toString())
-    .then(res => res.text())
-    .then(html => {
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = html;
-
-      const newThreadList = tempDiv.querySelector('#thread-list-inner');
+  fetch('/api/threads?' + params.toString())
+    .then(res => res.json())
+    .then(data => {
       const threadListInner = document.getElementById('thread-list-inner');
-      if (threadListInner && newThreadList) threadListInner.innerHTML = newThreadList.innerHTML;
-
+      if (threadListInner) {
+        threadListInner.innerHTML = '';
+        data.threads.forEach(thread => {
+          const threadDiv = document.createElement('div');
+          threadDiv.className = 'thread';
+          threadDiv.id = 'thread-' + thread.phone.replace(/\+/g, 'plus');
+          threadDiv.innerHTML = `
+            <div class="thread-name-label">${thread.contact_name || thread.phone}</div>
+            <div class="thread-preview">${thread.last_message_body || ''}</div>
+            <div class="thread-time">${formatTimestamp(thread.last_message_time) || ''}</div>
+            <span class="chip" data-phone="${thread.phone}">${thread.tag || ''}</span>
+          `;
+          threadListInner.appendChild(threadDiv);
+        });
+      }
       attachNoteTooltips();
-
       let selectedThread = document.querySelector('.thread.selected');
       if (selectedThread) {
         loadThread(selectedThread.getAttribute('id').replace('thread-', ''));
@@ -596,7 +606,6 @@ function goToPage(pageNumber) {
         let firstThread = document.querySelector('.thread');
         if (firstThread) loadThread(firstThread.getAttribute('id').replace('thread-', ''));
       }
-
       updateThreadCount();
     });
 }
@@ -620,6 +629,13 @@ const activeBanners = {}; // { phone: { banner, count, timeout } }
 
 socket.on("new_message", data => {
   const { phone, body, direction, timestamp } = data;
+  // If needed, format timestamp for display
+  const displayTimestamp = formatTimestamp(timestamp);
+function formatTimestamp(ts) {
+  if (!ts) return '';
+  // If backend already sends in correct format, just return
+  return ts;
+}
 
   // === 🔔 Popup banner notification with counter ===
   if (activeBanners[phone]) {
@@ -727,26 +743,31 @@ function reloadThreads() {
   if (toDate) params.set('to', toDate);
   else params.delete('to');
 
-  fetch('/threads?' + params.toString())
-    .then(res => res.text())
-    .then(html => {
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = html;
-
-      const newThreadList = tempDiv.querySelector('#thread-list-inner');
+  fetch('/api/threads?' + params.toString())
+    .then(res => res.json())
+    .then(data => {
       const threadListInner = document.getElementById('thread-list-inner');
-      if (threadListInner && newThreadList) {
-        threadListInner.innerHTML = newThreadList.innerHTML;
+      if (threadListInner) {
+        threadListInner.innerHTML = '';
+        data.threads.forEach(thread => {
+          const threadDiv = document.createElement('div');
+          threadDiv.className = 'thread';
+          threadDiv.id = 'thread-' + thread.phone.replace(/\+/g, 'plus');
+          threadDiv.innerHTML = `
+            <div class="thread-name-label">${thread.contact_name || thread.phone}</div>
+            <div class="thread-preview">${thread.last_message_body || ''}</div>
+            <div class="thread-time">${thread.last_message_time || ''}</div>
+            <span class="chip" data-phone="${thread.phone}">${thread.tag || ''}</span>
+          `;
+          threadListInner.appendChild(threadDiv);
+        });
       }
-
       attachNoteTooltips();
-
       // Keep selection if possible
       if (currentPhone) {
         const threadDiv = document.getElementById('thread-' + currentPhone);
         if (threadDiv) loadThread(currentPhone);
       }
-
       updateThreadCount();
     });
 }
@@ -1040,14 +1061,14 @@ function loadThread(phone) {
   }
 
   // Fetch conversation
-  fetch("/thread/" + encodeURIComponent(phone))
+  fetch("/api/threads/" + encodeURIComponent(phone))
     .then(r => r.json())
     .then(data => {
       const messagesDiv = document.getElementById("messages");
       messagesDiv.innerHTML = data.messages.map(function(m) {
         var body = m.body || "";
         var timestamp = m.timestamp || "";
-        var messageClass = m.is_outbound ? 'message outbound' : 'message inbound';
+        var messageClass = m.direction === 'outbound' ? 'message outbound' : 'message inbound';
         return '<div class="' + messageClass + '">' +
           '<div class="message-content">' +
           '<div class="bubble">' + body + '</div>' +
@@ -1178,10 +1199,28 @@ function saveNotes() {
     body: JSON.stringify({ phone: currentPhone, tag: selectedtag, notes: noteContent })
   })
   .then(res => res.json())
-  .then(() => {
-    showTempMessage("Notes saved successfully!");
-    updateThreadNoteIcon(currentPhone, noteContent);
-    attachNoteTooltips();
+  .then((data) => {
+    if (data.success) {
+      showTempMessage("Notes saved successfully!");
+      updateThreadNoteIcon(currentPhone, noteContent);
+      attachNoteTooltips();
+      // Fetch and update activity log
+      fetch(`/api/property_activity_log?property_id=${window.currentPropertyId}`)
+        .then(r => r.json())
+        .then(logs => {
+          const ul = document.getElementById('activity-log-list');
+          if (ul) {
+            ul.innerHTML = '';
+            logs.forEach(log => {
+              const li = document.createElement('li');
+              li.innerHTML = `${log.timestamp} - <strong>${log.activity_type}</strong>: ${log.details} (${log.user})`;
+              ul.appendChild(li);
+            });
+          }
+        });
+    } else {
+      showTempMessage("Error saving notes: " + (data.error || "unknown error"));
+    }
   })
   .catch(err => {
     showTempMessage("Error saving notes: " + err.message);

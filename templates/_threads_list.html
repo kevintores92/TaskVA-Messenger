@@ -58,6 +58,45 @@
         {% if ts %}
   <div class="thread-time" data-raw-timestamp="{{ thread.timestamp }}">{{ thread.timestamp if thread.timestamp else '' }}</div>
         {% endif %}
+        <script>
+        // Ensure thread timestamps are formatted in UI
+        document.addEventListener('DOMContentLoaded', function() {
+          document.querySelectorAll('.thread-time[data-raw-timestamp]').forEach(el => {
+            el.textContent = formatTimestamp(el.getAttribute('data-raw-timestamp'));
+          });
+        });
+        function formatTimestamp(ts) {
+          if (!ts) return '';
+          let d;
+          if (/\d{4}-\d{2}-\d{2}/.test(ts)) {
+            d = new Date(ts.replace(/-/g, '/'));
+          } else {
+            const match = ts.match(/(\d{4}) ([A-Za-z]{3}) (\d{2})/);
+            if (match) {
+              const [_, year, monthStr, day] = match;
+              const month = new Date(Date.parse(monthStr + ' 1, 2000')).getMonth();
+              d = new Date(year, month, day);
+            } else {
+              d = new Date(ts);
+            }
+          }
+          if (isNaN(d.getTime())) return ts;
+          const now = new Date();
+          if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()) {
+            let timeMatch = ts.match(/\|\s*(\d{1,2}:\d{2} [AP]M)/);
+            if (timeMatch) return timeMatch[1];
+            return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+          } else if (d.getFullYear() === now.getFullYear()) {
+            const month = d.toLocaleString('en-US', { month: 'short' });
+            const day = d.getDate();
+            return `${month} ${day}`;
+          } else {
+            const month = d.toLocaleString('en-US', { month: 'short' });
+            const day = d.getDate();
+            return `${d.getFullYear()} ${month} ${day}`;
+          }
+        }
+        </script>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
         <button class="gmail-icon-btn mark-read-btn" data-phone="{{ thread.phone }}" data-unread="{{ thread.unread|int }}" title="{{ 'Mark as Unread' if not thread.unread else 'Mark as Read' }}" aria-label="{{ 'Mark as Unread' if not thread.unread else 'Mark as Read' }}" onclick="event.stopPropagation(); toggleReadStatus(this)">

@@ -13,6 +13,36 @@ from twilio.jwt.access_token import AccessToken
 from twilio.jwt.access_token.grants import VoiceGrant
 from sms_sender_core import send_sms_batch
 from werkzeug.utils import secure_filename
+from sqlalchemy import asc, desc
+# --- SQLAlchemy imports for ORM models and session ---
+from sqlalchemy import create_engine, func
+from sqlalchemy.orm import sessionmaker
+# Import your models (adjust the import path as needed)
+# Example: from models import Messages, ContactsNew, ContactPhones, Phones
+# If your models are in the same file, define them above this import section
+try:
+    from models import Messages, ContactsNew, ContactPhones, Phones, Properties, PropertyContacts, PropertyActivityLog
+except ImportError:
+    # Define dummy classes if not available (for code to run, but you should use your real models)
+    class Messages:
+        pass
+    class ContactsNew:
+        pass
+    class ContactPhones:
+        pass
+    class Phones:
+        pass
+    class Properties:
+        pass
+    class PropertyContacts:
+        pass
+    class PropertyActivityLog:
+        pass
+
+# Set up SQLAlchemy session (adjust DB URI as needed)
+engine = create_engine(f"sqlite:///{os.path.abspath(os.path.join(os.path.dirname(__file__), 'messages.db'))}")
+SessionLocal = sessionmaker(bind=engine)
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
@@ -65,51 +95,28 @@ def normalize_timestamp(ts_str):
     if not ts_str:
         return ""
     try:
-        # Parse with dateutil, always output as 'YYYY-MM-DD HH:MM:SS' (no tz, no microseconds)
+        # Parse with dateutil, always output as 'YYYY MMM DD | h:mm AM/PM' (no tz, no microseconds)
         dt = parser.parse(ts_str)
         dt = dt.replace(tzinfo=None)  # Remove timezone info
-        return dt.strftime('%Y-%m-%d %H:%M:%S')
+        return dt.strftime('%Y %b %d | %#I:%M %p')
     except Exception as e:
         print(f"Error normalizing timestamp: {ts_str} -> {e}")
-        return str(ts_str)[:19]
-
-
-    # Example usage:
-    # raw_ts = message["timestamp"]  # from Twilio API
-    # normalized_ts = normalize_timestamp(raw_ts)
-    # message["timestamp"] = normalized_ts
-    # db_cursor.execute("""
-    #     INSERT INTO messages (phone, body, timestamp, ...)
-    #     VALUES (?, ?, ?, ...)
-    # """, (message["phone"], message["body"], message["timestamp"], ...))
+        return str(ts_str)
 
 def get_caller_id_for_phone(phone):
     phone = normalize_e164(phone)
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    # 1) Latest INBOUND
-    c.execute("""
-        SELECT twilio_number FROM messages
-        WHERE phone=? AND direction='inbound'
-              AND twilio_number IS NOT NULL AND twilio_number != ''
-        ORDER BY timestamp DESC LIMIT 1
-    """, (phone,))
+    c.execute("SELECT twilio_number FROM messages WHERE phone=? AND direction='inbound' AND twilio_number IS NOT NULL AND twilio_number != '' ORDER BY timestamp DESC LIMIT 1", (phone,))
     row = c.fetchone()
     if row and row[0]:
         conn.close()
         return row[0]
-    # 2) Latest OUTBOUND
-    c.execute("""
-        SELECT twilio_number FROM messages
-        WHERE phone=? AND direction LIKE 'outbound%%'
-              AND twilio_number IS NOT NULL AND twilio_number != ''
-        ORDER BY timestamp DESC LIMIT 1
-    """, (phone,))
+    c.execute("SELECT twilio_number FROM messages WHERE phone=? AND direction LIKE 'outbound%%' AND twilio_number IS NOT NULL AND twilio_number != '' ORDER BY timestamp DESC LIMIT 1", (phone,))
     row = c.fetchone()
     conn.close()
     if row and row[0]:
         return row[0]
-    # 3) Default fallback
     return TWILIO_NUMBERS[0]
 
 def remove_drip_assignment(phone):
@@ -132,7 +139,7 @@ def log_message(phone, direction, body, status=None, timestamp=None, twilio_numb
 
     # Ensure timestamp
     if not timestamp:
-        timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+        timestamp = datetime.now(timezone.utc).strftime('%Y %b %d | %#I:%M %p')
     timestamp = normalize_timestamp(timestamp)
 
     # Fallback Twilio number logic
@@ -258,83 +265,25 @@ def get_conversation(phone):
     return convo
 
 def get_threads(search=None, tag_filters=None, box=None, page=1, page_size=50):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("CREATE INDEX IF NOT EXISTS idx_messages_phone ON messages(phone)")
-    c.execute("CREATE INDEX IF NOT EXISTS idx_contacts_phone ON contacts(phone)")
-    c.execute("CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp)")
-
-    if not box:
-        box = 'all'
-
-    c.execute("SELECT phone, MAX(timestamp) as latest_time FROM messages GROUP BY phone ORDER BY latest_time DESC")
-    phones = c.fetchall()
+    session = SessionLocal()
+    # Get latest message per phone
+    subq = session.query(Messages.phone, func.max(Messages.timestamp).label('latest_time')).group_by(Messages.phone).subquery()
+    query = session.query(Messages).join(subq, (Messages.phone == subq.c.phone) & (Messages.timestamp == subq.c.latest_time))
     threads = []
-
-    for contact_phone, latest_time in phones:
-        # Get last 2 inbound messages for preview
-        c.execute("""
-            SELECT body, timestamp FROM messages
-            WHERE phone=? AND direction='inbound'
-            ORDER BY timestamp DESC LIMIT 2
-        """, (contact_phone,))
-        inbound_rows = c.fetchall()
-
-        if inbound_rows:
-            latest_body = "\n".join([(row[0] or "") for row in inbound_rows[::-1]])
-            latest_timestamp = inbound_rows[0][1]  # timestamp of most recent inbound
-            latest_direction = "inbound"
-            twilio_number = ""  # not needed for preview
-        else:
-            # Fallback → latest message of any type
-            c.execute("""
-                SELECT body, direction, timestamp, twilio_number 
-                FROM messages 
-                WHERE phone=? ORDER BY timestamp DESC LIMIT 1
-            """, (contact_phone,))
-            latest_row = c.fetchone()
-            latest_body = latest_row[0] if latest_row else ""
-            latest_direction = latest_row[1] if latest_row else ""
-            latest_timestamp = latest_row[2] if latest_row else latest_time
-            twilio_number = latest_row[3] if latest_row else ""
-
-        # Fetch contact info (fallbacks for missing columns)
-        # Try legacy contacts table first, fallback to contacts_new/phones
-        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='contacts'")
-        if c.fetchone():
-            c.execute("PRAGMA table_info(contacts)")
-            contact_cols = [row[1] for row in c.fetchall()]
-            quoted_cols = [f'"{col}"' for col in contact_cols]
-            c.execute(f"SELECT {', '.join(quoted_cols)} FROM contacts WHERE phone=?", (contact_phone,))
-            contact_row = c.fetchone()
-        else:
-            c.execute("PRAGMA table_info(contacts_new)")
-            contact_cols = [row[1] for row in c.fetchall()]
-            quoted_cols = [f'"{col}"' for col in contact_cols]
-            # Join phones and contacts_new
-            c.execute(f"SELECT {', '.join(quoted_cols)} FROM contacts_new JOIN contact_phones ON contacts_new.id = contact_phones.contact_id JOIN phones ON contact_phones.phone_id = phones.id WHERE phones.phone=?", (contact_phone,))
-            contact_row = c.fetchone()
-        name = ""
-        address = ""
-        tag = ""
-        notes = ""
+    for msg in query:
+        # Get contact info from normalized tables
+        contact = session.query(ContactsNew).join(ContactPhones, ContactsNew.id == ContactPhones.contact_id).join(Phones, ContactPhones.phone_id == Phones.id).filter(Phones.phone == msg.phone).first()
+        name = (contact.first_name + " " + contact.last_name) if contact else ""
+        address = getattr(contact, "address", "") if contact and hasattr(contact, "address") else ""
+        tag = getattr(contact, "tag", "") if contact and hasattr(contact, "tag") else ""
+        notes = getattr(contact, "notes", "") if contact and hasattr(contact, "notes") else ""
         contact_extra = ""
-        if contact_row:
-            contact_dict = dict(zip(contact_cols, contact_row))
-            name = contact_dict.get("Name", "") or contact_dict.get("name", "") or ""
-            address = contact_dict.get("Address", "") or contact_dict.get("address", "") or ""
-            tag = contact_dict.get("tag", "")
-            notes = contact_dict.get("notes", "")
-            # Build contact_extra from all columns except phone
-            contact_extra = " | ".join([str(v) for k, v in contact_dict.items() if k.lower() not in ("phone", "name", "address", "tag", "notes") and v and str(v).strip()])
-
-        # Filter by box type
+        # Filtering logic
         skip = False
-        if box == 'inbox' and latest_direction != 'inbound':
+        if box == 'inbox' and msg.direction != 'inbound':
             skip = True
-        if box == 'sent' and not str(latest_direction).startswith('outbound'):
+        if box == 'sent' and not str(msg.direction).startswith('outbound'):
             skip = True
-        # Filter by tag
         if tag_filters:
             tag_val = (tag or "").strip().lower()
             match = False
@@ -345,13 +294,12 @@ def get_threads(search=None, tag_filters=None, box=None, page=1, page_size=50):
                     match = True
             if not match:
                 skip = True
-        # Filter by search
-        if search and search.strip() and search.lower() not in (str(contact_phone) + str(name) + str(address)).lower():
+        if search and search.strip() and search.lower() not in (str(msg.phone) + str(name) + str(address)).lower():
             skip = True
         if skip:
             continue
-        # Format timestamp safely
-        ts_str = str(latest_timestamp) if latest_timestamp else ""
+        # Format timestamp
+        ts_str = str(msg.timestamp) if msg.timestamp else ""
         try:
             if ts_str and ts_str != "None":
                 dt = parser.parse(ts_str)
@@ -360,26 +308,21 @@ def get_threads(search=None, tag_filters=None, box=None, page=1, page_size=50):
         except Exception:
             dt = datetime.now()
         ts_formatted = dt.strftime('%Y-%m-%d %I:%M:%S %p CST')
-        # Build thread entry
-        is_unread = False
-        if latest_direction == "inbound":
-            is_unread = True
+        is_unread = msg.direction == "inbound"
         threads.append({
-            "phone": contact_phone,
+            "phone": msg.phone,
             "name": name,
             "address": address,
             "tag": tag,
             "notes": notes,
             "contact_extra": contact_extra,
-            "latest": latest_body,
-            "latest_direction": latest_direction,
+            "latest": msg.body,
+            "latest_direction": msg.direction,
             "timestamp": ts_formatted,
-            "twilio_number": twilio_number,
+            "twilio_number": getattr(msg, "twilio_number", ""),
             "unread": is_unread
         })
-
-
-    conn.close()
+    session.close()
     return threads
 
 
@@ -526,18 +469,15 @@ def process_message(phone, direction, body, timestamp):
 
 # Helper: get all weeks (Mon-Sun) with data in messages table
 def get_available_weeks():
-    if not os.path.exists(DB_PATH):
-        return []
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT MIN(date(timestamp)), MAX(date(timestamp)) FROM messages")
-    min_date, max_date = c.fetchone()
+    session = SessionLocal()
+    min_date = session.query(func.min(Messages.timestamp)).scalar()
+    max_date = session.query(func.max(Messages.timestamp)).scalar()
+    session.close()
     if not min_date or not max_date:
         return []
-    from datetime import datetime, timedelta
-    min_dt = datetime.strptime(min_date, "%Y-%m-%d")
-    max_dt = datetime.strptime(max_date, "%Y-%m-%d")
-    # Find first Monday on/after min_dt
+    from datetime import datetime, timedelta, date
+    min_dt = datetime.strptime(str(min_date)[:10], "%Y-%m-%d")
+    max_dt = datetime.strptime(str(max_date)[:10], "%Y-%m-%d")
     start = min_dt - timedelta(days=(min_dt.weekday()))
     weeks = []
     cur = start
@@ -546,39 +486,31 @@ def get_available_weeks():
         label = f"{cur.strftime('%Y-%m-%d')} to {end.strftime('%Y-%m-%d')}"
         weeks.append(label)
         cur += timedelta(days=7)
-    # Always include current week (Monday-Sunday)
-    from datetime import date
     today = date.today()
     current_monday = today - timedelta(days=today.weekday())
     current_sunday = current_monday + timedelta(days=6)
     current_label = f"{current_monday.strftime('%Y-%m-%d')} to {current_sunday.strftime('%Y-%m-%d')}"
     if current_label not in weeks:
         weeks.append(current_label)
-    conn.close()
     return weeks
 
 # Helper: load KPI rows for a given week (label: YYYY-MM-DD to YYYY-MM-DD)
 def load_kpi_rows_for_week(week_label):
-    if not os.path.exists(DB_PATH) or not week_label:
+    if not week_label:
         return [], [], [], [], [], {"total_sent": 0, "total_delivered": 0, "total_replies": 0, "avg_reply_time": "N/A"}
     start_str, end_str = week_label.split(' to ')
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
     from datetime import datetime, timedelta
     start = datetime.strptime(start_str, "%Y-%m-%d")
     end = datetime.strptime(end_str, "%Y-%m-%d")
     num_days = (end - start).days + 1
     dates = [(start + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(num_days)]
+    session = SessionLocal()
     sent, delivered, replies = [], [], []
     for d in dates:
-        c.execute("SELECT COUNT(*) FROM messages WHERE direction LIKE 'outbound%' AND date(timestamp)=?", (d,))
-        sent.append(c.fetchone()[0])
-        c.execute("SELECT COUNT(*) FROM messages WHERE direction LIKE 'outbound%' AND status='delivered' AND date(timestamp)=?", (d,))
-        delivered.append(c.fetchone()[0])
-        c.execute("SELECT COUNT(*) FROM messages WHERE direction='inbound' AND date(timestamp)=?", (d,))
-        replies.append(c.fetchone()[0])
+        sent.append(session.query(Messages).filter(Messages.direction.like('outbound%'), func.date(Messages.timestamp) == d).count())
+        delivered.append(session.query(Messages).filter(Messages.direction.like('outbound%'), Messages.status == 'delivered', func.date(Messages.timestamp) == d).count())
+        replies.append(session.query(Messages).filter(Messages.direction == 'inbound', func.date(Messages.timestamp) == d).count())
     delivery_rate = [round((d/s)*100,2) if s else 0 for s,d in zip(sent, delivered)]
-    # Weekly totals
     total_sent = sum(sent)
     total_delivered = sum(delivered)
     total_replies = sum(replies)
@@ -592,7 +524,7 @@ def load_kpi_rows_for_week(week_label):
         "response_rate": response_rate,
         "avg_reply_time": "N/A"
     }
-    conn.close()
+    session.close()
     return dates, sent, delivered, delivery_rate, replies, latest
 
 # Helper: get all months with data in messages table
@@ -644,32 +576,20 @@ def get_lead_breakdown(start_date=None, end_date=None):
     Returns a dict of tag -> count from contacts table, plus total.
     If start_date and end_date are provided, filters replies by date.
     """
-    if not os.path.exists(DB_PATH):
-        return {"Warm": 0, "Nurture": 0, "Drip": 0, "Not interested": 0, "Wrong Number": 0, "DNC": 0, "total": 0}
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    query = """
-        SELECT contacts.tag, COUNT(messages.id)
-        FROM messages
-        JOIN contacts ON messages.phone = contacts.phone
-        WHERE messages.direction = 'inbound'
-    """
-    params = []
-    if start_date and end_date:
-        query += " AND date(messages.timestamp) >= ? AND date(messages.timestamp) <= ?"
-        params.extend([start_date, end_date])
-    query += " GROUP BY contacts.tag"
-    c.execute(query, params)
-    rows = c.fetchall()
+    session = SessionLocal()
     tags = ["Warm", "Nurture", "Drip", "Not interested", "Wrong Number", "DNC"]
     result = {tag: 0 for tag in tags}
-    for tag, count in rows:
-        if tag in result:
-            result[tag] = count
+    query = session.query(Messages, ContactsNew).join(ContactsNew, Messages.phone == ContactsNew.id).filter(Messages.direction == 'inbound')
+    if start_date and end_date:
+        query = query.filter(func.date(Messages.timestamp) >= start_date, func.date(Messages.timestamp) <= end_date)
+    for msg, contact in query:
+        tag_val = getattr(contact, "tag", None)
+        if tag_val in result:
+            result[tag_val] += 1
         else:
-            result["No tag"] = result.get("No tag", 0) + count
+            result["No tag"] = result.get("No tag", 0) + 1
     result["total"] = sum(result.values())
-    conn.close()
+    session.close()
     return result
 
 def load_kpi_rows(limit_days=60):
@@ -677,52 +597,31 @@ def load_kpi_rows(limit_days=60):
     Loads rows from messages table in messages.db.
     Returns arrays: dates (YYYY-MM-DD), sent, delivered, delivery_rate, replies, latest_row_dict
     """
-    if not os.path.exists(DB_PATH):
-        return [], [], [], [], [], {"total_sent": 0, "total_delivered": 0, "total_replies": 0, "avg_reply_time": "N/A"}
-
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    # Get all message dates in the last N days
-    c.execute("SELECT MIN(date(timestamp)), MAX(date(timestamp)) FROM messages")
-    min_date, max_date = c.fetchone()
+    session = SessionLocal()
+    min_date = session.query(func.min(Messages.timestamp)).scalar()
+    max_date = session.query(func.max(Messages.timestamp)).scalar()
     if not max_date:
-        conn.close()
+        session.close()
         return [], [], [], [], [], {"total_sent": 0, "total_delivered": 0, "total_replies": 0, "avg_reply_time": "N/A"}
-
-    # Build list of last limit_days dates
     from datetime import datetime, timedelta
-    end_date = datetime.strptime(max_date, "%Y-%m-%d")
+    end_date = datetime.strptime(str(max_date)[:10], "%Y-%m-%d")
     dates = [(end_date - timedelta(days=i)).strftime("%Y-%m-%d") for i in reversed(range(limit_days))]
-
     sent, delivered, replies = [], [], []
     for d in dates:
-        # Sent: outbound messages
-        c.execute("SELECT COUNT(*) FROM messages WHERE direction LIKE 'outbound%' AND date(timestamp)=?", (d,))
-        sent.append(c.fetchone()[0])
-        # Delivered: outbound messages with status delivered
-        c.execute("SELECT COUNT(*) FROM messages WHERE direction LIKE 'outbound%' AND status='delivered' AND date(timestamp)=?", (d,))
-        delivered.append(c.fetchone()[0])
-        # Replies: inbound messages
-        c.execute("SELECT COUNT(*) FROM messages WHERE direction='inbound' AND date(timestamp)=?", (d,))
-        replies.append(c.fetchone()[0])
-
+        sent.append(session.query(Messages).filter(Messages.direction.like('outbound%'), func.date(Messages.timestamp) == d).count())
+        delivered.append(session.query(Messages).filter(Messages.direction.like('outbound%'), Messages.status == 'delivered', func.date(Messages.timestamp) == d).count())
+        replies.append(session.query(Messages).filter(Messages.direction == 'inbound', func.date(Messages.timestamp) == d).count())
     delivery_rate = [round((d/s)*100,2) if s else 0 for s,d in zip(sent, delivered)]
-
-    # All-time stats (reuse same connection/cursor)
-    c.execute("SELECT COUNT(*) FROM messages WHERE direction LIKE 'outbound%'")
-    total_sent = c.fetchone()[0]
-    c.execute("SELECT COUNT(*) FROM messages WHERE direction LIKE 'outbound%' AND status='delivered'")
-    total_delivered = c.fetchone()[0]
-    c.execute("SELECT COUNT(*) FROM messages WHERE direction='inbound'")
-    total_replies = c.fetchone()[0]
+    total_sent = session.query(Messages).filter(Messages.direction.like('outbound%')).count()
+    total_delivered = session.query(Messages).filter(Messages.direction.like('outbound%'), Messages.status == 'delivered').count()
+    total_replies = session.query(Messages).filter(Messages.direction == 'inbound').count()
     latest = {
         "total_sent": total_sent,
         "total_delivered": total_delivered,
         "total_replies": total_replies,
         "avg_reply_time": "N/A"
     }
-
-    conn.close()
+    session.close()
     return dates, sent, delivered, delivery_rate, replies, latest
 
     # ...existing code for dashboard route remains...
@@ -732,26 +631,12 @@ def get_top_campaigns(limit=3):
     """
     Returns a list of dicts: [{name, Warm, Nurture, Drip, Not interested, Wrong Number, DNC, total}], sorted by total leads desc.
     """
-    if not os.path.exists(DB_PATH):
-        return []
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    # Get replies by campaign and tag
-    try:
-        c.execute("""
-            SELECT contacts.campaign, contacts.tag, COUNT(messages.id)
-            FROM messages
-            JOIN contacts ON messages.phone = contacts.phone
-            WHERE messages.direction = 'inbound'
-            GROUP BY contacts.campaign, contacts.tag
-        """)
-    except Exception:
-        return []
-    rows = c.fetchall()
-    from collections import defaultdict
+    session = SessionLocal()
     tags = ["Warm", "Nurture", "Drip", "Not interested", "Wrong Number", "DNC"]
+    from collections import defaultdict
     camp_data = defaultdict(lambda: {tag: 0 for tag in tags})
-    for camp, tag, count in rows:
+    query = session.query(ContactsNew.campaign, ContactsNew.tag, func.count(Messages.id)).join(Messages, Messages.phone == ContactsNew.id).filter(Messages.direction == 'inbound').group_by(ContactsNew.campaign, ContactsNew.tag)
+    for camp, tag, count in query:
         camp = camp or "(No Campaign)"
         if tag in camp_data[camp]:
             camp_data[camp][tag] += count
@@ -762,7 +647,7 @@ def get_top_campaigns(limit=3):
         entry["total"] = sum(tag_counts.values())
         result.append(entry)
     result.sort(key=lambda x: (-x["total"], x["name"]))
-    conn.close()
+    session.close()
     return result[:limit]
     
 # --- Context processor to inject TWILIO_NUMBERS into all templates ---
@@ -838,7 +723,7 @@ def ensure_properties_tables():
     ''')
     # Contacts table
     c.execute('''
-        CREATE TABLE IF NOT EXISTS contacts_new (
+    CREATE TABLE IF NOT EXISTS contacts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             first_name TEXT,
             last_name TEXT,
@@ -860,7 +745,7 @@ def ensure_properties_tables():
             role TEXT,
             PRIMARY KEY(property_id, contact_id, role),
             FOREIGN KEY(property_id) REFERENCES properties(id),
-            FOREIGN KEY(contact_id) REFERENCES contacts_new(id)
+            FOREIGN KEY(contact_id) REFERENCES contacts(id)
         )
     ''')
     # contact_phones (many-to-many)
@@ -869,7 +754,7 @@ def ensure_properties_tables():
             contact_id INTEGER,
             phone_id INTEGER,
             PRIMARY KEY(contact_id, phone_id),
-            FOREIGN KEY(contact_id) REFERENCES contacts_new(id),
+            FOREIGN KEY(contact_id) REFERENCES contacts(id),
             FOREIGN KEY(phone_id) REFERENCES phones(id)
         )
     ''')
@@ -896,6 +781,73 @@ def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # ── ROUTES ────────────────────────────────────────────────────────
+# --- Contacts Page ---
+@app.route("/contacts", methods=["GET"])
+
+
+@app.route("/contacts", methods=["GET"])
+def contacts_page():
+    session = SessionLocal()
+    # Get filter/sort params
+    filter_type = request.args.get("filter", "all")
+    sort_by = request.args.get("sort_by", "id")
+    sort_order = request.args.get("sort_order", "asc")
+    query = session.query(Contact)
+    # Filtering
+    if filter_type == "no_name":
+        query = query.filter((Contact.first_name == None) | (Contact.first_name == ""), (Contact.last_name == None) | (Contact.last_name == ""))
+    elif filter_type == "no_address":
+        query = query.filter((Contact.address == None) | (Contact.address == ""))
+    elif filter_type == "no_name_or_address":
+        query = query.filter((Contact.address == None) | (Contact.address == ""), (Contact.first_name == None) | (Contact.first_name == ""), (Contact.last_name == None) | (Contact.last_name == ""))
+    # Sorting
+    if sort_order == "asc":
+        query = query.order_by(asc(getattr(Contact, sort_by, Contact.id)))
+    else:
+        query = query.order_by(desc(getattr(Contact, sort_by, Contact.id)))
+    contacts = query.all()
+    contacts_list = []
+    for c in contacts:
+        contacts_list.append({
+            "id": c.id,
+            "first_name": getattr(c, "first_name", ""),
+            "last_name": getattr(c, "last_name", ""),
+            "phone": getattr(c, "phone", ""),
+            "address": getattr(c, "address", ""),
+            "tag": getattr(c, "tag", ""),
+            "notes": getattr(c, "notes", ""),
+        })
+    session.close()
+    return render_template("contacts.html", contacts=contacts_list, filter_type=filter_type, sort_by=sort_by, sort_order=sort_order)
+
+# --- Edit Contact ---
+@app.route("/contacts/edit/<int:contact_id>", methods=["GET", "POST"])
+def edit_contact(contact_id):
+    session = SessionLocal()
+    contact = session.query(ContactsNew).get(contact_id)
+    if request.method == "POST":
+        contact.first_name = request.form.get("first_name", "")
+        contact.last_name = request.form.get("last_name", "")
+        contact.phone = request.form.get("phone", "")
+        contact.address = request.form.get("address", "")
+        contact.tag = request.form.get("tag", "")
+        contact.notes = request.form.get("notes", "")
+        session.commit()
+        session.close()
+        return redirect(url_for("contacts_page"))
+    session.close()
+    return render_template("edit_contact.html", contact=contact)
+
+# --- Delete Contact ---
+@app.route("/contacts/delete/<int:contact_id>", methods=["POST"])
+def delete_contact(contact_id):
+    session = SessionLocal()
+    contact = session.query(ContactsNew).get(contact_id)
+    if contact:
+        session.delete(contact)
+        session.commit()
+    session.close()
+    return redirect(url_for("contacts_page"))
 # --- Leads Kanban Page ---
 @app.route("/leads", methods=["GET"])
 def leads_kanban():
@@ -916,7 +868,7 @@ def leads_kanban():
         c.execute("""
             SELECT pc.role, cn.id, cn.first_name, cn.last_name, cn.type, cn.tag
             FROM property_contacts pc
-            JOIN contacts_new cn ON pc.contact_id = cn.id
+            JOIN contacts cn ON pc.contact_id = cn.id
             WHERE pc.property_id=? ORDER BY pc.role DESC LIMIT 1
         """, (prop["id"],))
         contact = c.fetchone()
@@ -1161,7 +1113,7 @@ def import_list():
                 cols = ','.join(contact_data.keys())
                 vals = [contact_data[k] for k in contact_data.keys()]
                 placeholders = ','.join(['?' for _ in contact_data])
-                c.execute(f"INSERT INTO contacts_new ({cols}) VALUES ({placeholders})", vals)
+                c.execute(f"INSERT INTO contacts ({cols}) VALUES ({placeholders})", vals)
                 contact_id = c.lastrowid
             # Insert phones
             for field, val in phone_data:
@@ -1215,78 +1167,44 @@ def properties_main():
 # --- Property Account Page ---
 
 @app.route("/property/<int:property_id>", methods=["GET"])
-@app.route("/property/<int:property_id>", methods=["GET"])
 def property_account_page(property_id):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    # Get all columns for this property
-    c.execute("PRAGMA table_info(properties)")
-    prop_cols = [row[1] for row in c.fetchall()]
-    c.execute(f"SELECT {', '.join(prop_cols)} FROM properties WHERE id=?", (property_id,))
-    prop_row = c.fetchone()
-    if not prop_row:
-        conn.close()
+    session = SessionLocal()
+    property_obj = session.query(Properties).filter(Properties.id == property_id).first()
+    if not property_obj:
+        session.close()
         return "Property not found", 404
-    property_info = dict(zip(prop_cols, prop_row))
-    c.execute("""
-        SELECT pc.role, cn.id, cn.first_name, cn.last_name, cn.type
-        FROM property_contacts pc
-        JOIN contacts_new cn ON pc.contact_id = cn.id
-        WHERE pc.property_id=?
-    """, (property_id,))
-    contacts = [
-        {
-            "role": r[0],
-            "id": r[1],
-            "first_name": r[2],
-            "last_name": r[3],
-            "type": r[4],
-        }
-        for r in c.fetchall()
-    ]
-    for contact in contacts:
-        c.execute("""
-            SELECT p.phone FROM contact_phones cp
-            JOIN phones p ON cp.phone_id = p.id
-            WHERE cp.contact_id=?
-        """, (contact["id"],))
-        contact["phones"] = [row[0] for row in c.fetchall()]
-    for contact in contacts:
-        c.execute("""
-            SELECT pr.id, pr.address, pr.unit, pr.city, pr.state, pr.zip
-            FROM property_contacts pc
-            JOIN properties pr ON pc.property_id = pr.id
-            WHERE pc.contact_id=?
-        """, (contact["id"],))
-        contact["portfolio"] = [
-            {
-                "id": r[0],
-                "address": r[1],
-                "unit": r[2],
-                "city": r[3],
-                "state": r[4],
-                "zip": r[5],
-            }
-            for r in c.fetchall()
-        ]
-    c.execute("SELECT timestamp, activity_type, details, user FROM property_activity_log WHERE property_id=? ORDER BY timestamp DESC", (property_id,))
+    property_info = property_obj.__dict__
+    contacts = []
+    prop_contacts = session.query(PropertyContacts).filter(PropertyContacts.property_id == property_id).all()
+    for pc in prop_contacts:
+        contact = session.query(ContactsNew).filter(ContactsNew.id == pc.contact_id).first()
+        phones = session.query(Phones).join(ContactPhones, Phones.id == ContactPhones.phone_id).filter(ContactPhones.contact_id == contact.id).all()
+        portfolio = session.query(Properties).join(PropertyContacts, Properties.id == PropertyContacts.property_id).filter(PropertyContacts.contact_id == contact.id).all()
+        contacts.append({
+            "role": pc.role,
+            "id": contact.id,
+            "first_name": contact.first_name,
+            "last_name": contact.last_name,
+            "type": contact.type,
+            "phones": [p.phone for p in phones],
+            "portfolio": [{"id": p.id, "address": p.address, "unit": p.unit, "city": p.city, "state": p.state, "zip": p.zip} for p in portfolio]
+        })
     activity_log = [
         {
-            "timestamp": r[0],
-            "activity_type": r[1],
-            "details": r[2],
-            "user": r[3],
+            "timestamp": log.timestamp,
+            "activity_type": log.activity_type,
+            "details": log.details,
+            "user": log.user,
         }
-        for r in c.fetchall()
+        for log in session.query(PropertyActivityLog).filter(PropertyActivityLog.property_id == property_id).order_by(PropertyActivityLog.timestamp.desc()).all()
     ]
-    conn.close()
-    # Render property_account.html and include property_contacts_activity.html for contacts/phones/activity log management
+    session.close()
     return render_template(
         "property_account.html",
         property=property_info,
         contacts=contacts,
         activity_log=activity_log,
-        phones=[{"phone": p[0]} for p in sum([c["phones"] for c in contacts], [])]  # flatten phones for modal
+        phones=[{"phone": p} for c in contacts for p in c["phones"]]
     )
 
 # --- CRUD: Add Property ---
@@ -1295,31 +1213,32 @@ def property_account_page(property_id):
 @app.route("/properties/add", methods=["POST"])
 def add_property():
     data = request.get_json(force=True)
-    address = data.get("address")
-    unit = data.get("unit")
-    city = data.get("city")
-    state = data.get("state")
-    zip_code = data.get("zip")
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("INSERT INTO properties (address, unit, city, state, zip) VALUES (?, ?, ?, ?, ?)",
-              (address, unit, city, state, zip_code))
-    conn.commit()
-    conn.close()
+    session = SessionLocal()
+    prop = Properties(
+        address=data.get("address"),
+        unit=data.get("unit"),
+        city=data.get("city"),
+        state=data.get("state"),
+        zip=data.get("zip")
+    )
+    session.add(prop)
+    session.commit()
+    session.close()
     return jsonify({"success": True})
 
 # --- CRUD: Add Contact ---
 @app.route("/contacts/add", methods=["POST"])
 def add_contact():
     data = request.get_json(force=True)
-    first_name = data.get("first_name")
-    last_name = data.get("last_name")
-    type_ = data.get("type")
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("INSERT INTO contacts_new (first_name, last_name, type) VALUES (?, ?, ?)", (first_name, last_name, type_))
-    conn.commit()
-    conn.close()
+    session = SessionLocal()
+    contact = ContactsNew(
+        first_name=data.get("first_name"),
+        last_name=data.get("last_name"),
+        type=data.get("type")
+    )
+    session.add(contact)
+    session.commit()
+    session.close()
     return jsonify({"success": True})
 
 # --- CRUD: Add Phone ---
@@ -1328,12 +1247,11 @@ def add_contact():
 @app.route("/phones/add", methods=["POST"])
 def add_phone():
     data = request.get_json(force=True)
-    phone = data.get("phone")
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("INSERT OR IGNORE INTO phones (phone) VALUES (?)", (phone,))
-    conn.commit()
-    conn.close()
+    session = SessionLocal()
+    phone_obj = Phones(phone=data.get("phone"))
+    session.add(phone_obj)
+    session.commit()
+    session.close()
     return jsonify({"success": True})
 
 # --- CRUD: Link Contact to Property ---
@@ -1342,15 +1260,15 @@ def add_phone():
 @app.route("/property_contacts/add", methods=["POST"])
 def add_property_contact():
     data = request.get_json(force=True)
-    property_id = data.get("property_id")
-    contact_id = data.get("contact_id")
-    role = data.get("role")
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("INSERT INTO property_contacts (property_id, contact_id, role) VALUES (?, ?, ?)",
-              (property_id, contact_id, role))
-    conn.commit()
-    conn.close()
+    session = SessionLocal()
+    pc = PropertyContacts(
+        property_id=data.get("property_id"),
+        contact_id=data.get("contact_id"),
+        role=data.get("role")
+    )
+    session.add(pc)
+    session.commit()
+    session.close()
     return jsonify({"success": True})
 
 # --- CRUD: Link Phone to Contact ---
@@ -1359,14 +1277,14 @@ def add_property_contact():
 @app.route("/contact_phones/add", methods=["POST"])
 def add_contact_phone():
     data = request.get_json(force=True)
-    contact_id = data.get("contact_id")
-    phone_id = data.get("phone_id")
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("INSERT INTO contact_phones (contact_id, phone_id) VALUES (?, ?)",
-              (contact_id, phone_id))
-    conn.commit()
-    conn.close()
+    session = SessionLocal()
+    cp = ContactPhones(
+        contact_id=data.get("contact_id"),
+        phone_id=data.get("phone_id")
+    )
+    session.add(cp)
+    session.commit()
+    session.close()
     return jsonify({"success": True})
 
 # --- CRUD: Add Property Activity Log ---
@@ -1375,16 +1293,16 @@ def add_contact_phone():
 @app.route("/property_activity_log/add", methods=["POST"])
 def add_property_activity_log():
     data = request.get_json(force=True)
-    property_id = data.get("property_id")
-    activity_type = data.get("activity_type")
-    details = data.get("details")
-    user = data.get("user")
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("INSERT INTO property_activity_log (property_id, activity_type, details, user) VALUES (?, ?, ?, ?)",
-              (property_id, activity_type, details, user))
-    conn.commit()
-    conn.close()
+    session = SessionLocal()
+    log = PropertyActivityLog(
+        property_id=data.get("property_id"),
+        activity_type=data.get("activity_type"),
+        details=data.get("details"),
+        user=data.get("user")
+    )
+    session.add(log)
+    session.commit()
+    session.close()
     return jsonify({"success": True})
 
 # --- API endpoint for properties table (for frontend filtering/sorting/search) ---
@@ -1402,56 +1320,39 @@ def api_properties():
         page = 1
     page_size = int(request.args.get("page_size", 20))
     offset = (page - 1) * page_size
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    # Count total
-    count_query = "SELECT COUNT(*) FROM properties"
-    count_params = []
-    # ...existing code already builds threads above...
-    # Get all rows
-    # Fallback to first column if 'count' does not exist
-    c.execute("PRAGMA table_info(properties)")
-    prop_cols = [row[1] for row in c.fetchall()]
-    order_col = 'count' if 'count' in prop_cols else prop_cols[0]
-    try:
-        c.execute(f"SELECT * FROM properties ORDER BY {order_col} ASC")
-        rows = c.fetchall()
-    except Exception as e:
-        print(f"[api_properties] Error fetching rows: {e}")
-        c.execute(f"SELECT * FROM properties")
-        rows = c.fetchall()
-    columns = [desc[0] for desc in c.description]
-    properties = [dict(zip(columns, r)) for r in rows]
-    # Get total count
-    c.execute("SELECT COUNT(*) FROM properties")
-    total_count = c.fetchone()[0]
-    conn.close()
+    session = SessionLocal()
+    query = session.query(Properties)
+    if search:
+        query = query.filter(Properties.address.ilike(f"%{search}%"))
+    if order == "asc":
+        query = query.order_by(getattr(Properties, sort).asc())
+    else:
+        query = query.order_by(getattr(Properties, sort).desc())
+    total_count = query.count()
+    properties = [p.__dict__ for p in query.offset(offset).limit(page_size).all()]
+    session.close()
     return jsonify({"properties": properties, "total_count": total_count, "page": page, "page_size": page_size})
 
 # --- API endpoint for property activity log (for notification center) ---
 @app.route("/api/property_activity_log", methods=["GET"])
 def api_property_activity_log():
     property_id = request.args.get("property_id")
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
+    session = SessionLocal()
     if property_id:
-        c.execute(
-            "SELECT property_id, timestamp, activity_type, details, user FROM property_activity_log WHERE property_id=? ORDER BY timestamp DESC", (property_id,))
+        logs_query = session.query(PropertyActivityLog).filter(PropertyActivityLog.property_id == property_id).order_by(PropertyActivityLog.timestamp.desc())
     else:
-        c.execute(
-            "SELECT property_id, timestamp, activity_type, details, user FROM property_activity_log ORDER BY timestamp DESC LIMIT 100")
-    rows = c.fetchall()
+        logs_query = session.query(PropertyActivityLog).order_by(PropertyActivityLog.timestamp.desc()).limit(100)
     logs = [
         {
-            "property_id": r[0],
-            "timestamp": r[1],
-            "activity_type": r[2],
-            "details": r[3],
-            "user": r[4],
+            "property_id": log.property_id,
+            "timestamp": log.timestamp,
+            "activity_type": log.activity_type,
+            "details": log.details,
+            "user": log.user,
         }
-        for r in rows
+        for log in logs_query.all()
     ]
-    conn.close()
+    session.close()
     return jsonify(logs)
 
 # --- Twilio Client JS Token Endpoint ---
@@ -1515,38 +1416,45 @@ def inbox():
     # Ensure each thread includes contact info
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
+    search = request.args.get("search", "")
+    box = request.args.get("box", "inbox")
+    tags_filter = request.args.getlist("tags")
+    selected_phone = request.args.get("selected")
+    from_date = request.args.get("from")
+    to_date = request.args.get("to")
+    try:
+        page = int(request.args.get("page", 1))
+        if page < 1:
+            page = 1
+    except Exception:
+        page = 1
+    page_size = 50
+    all_threads = get_threads(search=search, box=box, page=page, page_size=page_size)
+    # Enrich threads with normalized contact info
+    session = SessionLocal()
     for t in all_threads:
-        c.execute("SELECT name, tag, notes, address, property_details FROM contacts WHERE phone=?", (t["phone"],))
-        row = c.fetchone()
-        if row:
-            t["name"] = row[0] or ""
-            t["tag"] = row[1] or ""
-            t["notes"] = row[2] or ""
-            t["address"] = row[3] or ""
-            t["property_details"] = row[4] or ""
-            t["contact_extra"] = f"{row[3]} {row[4]}".strip() if row[3] or row[4] else ""
+        contact = session.query(ContactsNew).join(ContactPhones, ContactsNew.id == ContactPhones.contact_id).join(Phones, ContactPhones.phone_id == Phones.id).filter(Phones.phone == t["phone"]).first()
+        if contact:
+            t["name"] = f"{contact.first_name} {contact.last_name}".strip()
+            t["tag"] = getattr(contact, "tag", "")
+            t["notes"] = getattr(contact, "notes", "")
+            t["address"] = getattr(contact, "address", "")
+            t["contact_extra"] = t["address"]
         else:
             t["name"] = ""
             t["tag"] = ""
             t["notes"] = ""
             t["address"] = ""
-            t["property_details"] = ""
             t["contact_extra"] = ""
-    conn.close()
+    session.close()
     # Default excluded tags for inbox view
     default_excluded = {"DNC", "No tag", "Wrong Number", "Unverified", "Not interested"}
     # If no filter is set, exclude default tags
     if box == 'inbox':
         if not tags_filter or tags_filter == []:
-            all_threads = [t for t in all_threads if t.get("tag") not in default_excluded]
+            all_threads = [t for t in all_threads if (t.get("tag") or "") not in default_excluded]
         else:
-            if "__ALL__" not in tags_filter:
-                if "__NO_tag__" in tags_filter:
-                    all_threads = [t for t in all_threads if not t.get("tag")]
-                else:
-                    all_threads = [t for t in all_threads if t.get("tag") in tags_filter]
-            else:
-                all_threads = [t for t in all_threads if t.get("tag") not in default_excluded]
+            all_threads = [t for t in all_threads if (t.get("tag") or "") in tags_filter]
     if box == 'unread':
         all_threads = [
             t for t in all_threads
@@ -1554,7 +1462,7 @@ def inbox():
         ]
     def parse_date(ts):
         try:
-            return datetime.strptime(str(ts)[:10], "%Y-%m-%d").date()
+            return datetime.strptime(ts.split()[0], "%Y-%m-%d").date()
         except Exception:
             return None
     if from_date:
@@ -1579,7 +1487,6 @@ def inbox():
     unanswered_count = len([t for t in all_threads if t.get("latest_direction") == "inbound" and not t.get("responded")])
     reminders_count = 0  # later query reminders table
     no_tags_count = len([t for t in all_threads if not t.get("tag")])
-    from datetime import datetime
     current_date = datetime.now().strftime('%Y-%m-%d')
     return render_template(
         "inbox.html",
@@ -1599,17 +1506,6 @@ def inbox():
         no_tags_count=no_tags_count,
         current_date=current_date
     )
-
-
-# --- Update contact endpoint ---
-@app.route("/update-contact", methods=["POST"])
-def update_contact():
-    data = request.get_json(force=True)
-    phone = data.get("phone")
-    updates = {k: v for k, v in data.items() if k != "phone"}
-    if not phone or not updates:
-        return jsonify(success=False)
-    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     set_clause = ", ".join([f"{k}=?" for k in updates.keys()])
     values = list(updates.values()) + [phone]
@@ -1933,22 +1829,38 @@ def update_meta():
     if not tag:
         tag = "No tag"
 
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
+    session = SessionLocal()
+    # Find property by phone
+    phone_obj = session.query(Phones).filter(Phones.phone == phone).first()
+    property_obj = None
+    if phone_obj:
+        contact_phone = session.query(ContactPhones).filter(ContactPhones.phone_id == phone_obj.id).first()
+        if contact_phone:
+            property_contact = session.query(PropertyContacts).filter(PropertyContacts.contact_id == contact_phone.contact_id).first()
+            if property_contact:
+                property_obj = session.query(Properties).filter(Properties.id == property_contact.property_id).first()
 
-    # Check if contact exists
-    c.execute("SELECT 1 FROM contacts WHERE phone=?", (phone,))
-    if c.fetchone():
-        c.execute("UPDATE contacts SET tag=?, notes=? WHERE phone=?", (tag, notes, phone))
+    if property_obj:
+        # Update current_tag in properties
+        property_obj.current_tag = tag
+        session.commit()
+        # Add note to property_notes if provided
+        if notes:
+            from models import PropertyNote
+            note = PropertyNote(property_id=property_obj.id, value=notes, timestamp=datetime.utcnow())
+            session.add(note)
+            session.commit()
+        # Log activity
+        from models import PropertyActivityLog
+        log = PropertyActivityLog(property_id=property_obj.id, activity_type="Tag/Note Update", details=f"Tag: {tag}, Note: {notes}", user="system")
+        session.add(log)
+        session.commit()
+        socketio.emit("meta_updated", {"phone": phone, "tag": tag, "notes": notes})
+        session.close()
+        return jsonify({"success": True})
     else:
-        # Insert new row with default "No tag"
-        c.execute("INSERT INTO contacts (phone, tag, notes) VALUES (?, ?, ?)", (phone, tag, notes))
-
-    conn.commit()
-    conn.close()
-
-    socketio.emit("meta_updated", {"phone": phone, "tag": tag, "notes": notes})
-    return jsonify({"success": True})
+        session.close()
+        return jsonify({"success": False, "error": "Property not found for phone"})
 
 
 @app.route("/sms-webhook", methods=["POST"])
