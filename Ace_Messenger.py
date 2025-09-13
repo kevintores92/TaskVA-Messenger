@@ -72,16 +72,14 @@ def normalize_timestamp(ts_str):
         return str(ts_str)[:19]
 
 
-        # Example before inserting into DB
-        raw_ts = message["timestamp"]  # from Twilio API
-        normalized_ts = normalize_timestamp(raw_ts)
-        message["timestamp"] = normalized_ts
-
-        # Now insert message dict into DB
-        db_cursor.execute("""
-            INSERT INTO messages (phone, body, timestamp, ...)
-            VALUES (?, ?, ?, ...)
-        """, (message["phone"], message["body"], message["timestamp"], ...))
+    # Example usage:
+    # raw_ts = message["timestamp"]  # from Twilio API
+    # normalized_ts = normalize_timestamp(raw_ts)
+    # message["timestamp"] = normalized_ts
+    # db_cursor.execute("""
+    #     INSERT INTO messages (phone, body, timestamp, ...)
+    #     VALUES (?, ?, ?, ...)
+    # """, (message["phone"], message["body"], message["timestamp"], ...))
 
 def get_caller_id_for_phone(phone):
     phone = normalize_e164(phone)
