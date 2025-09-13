@@ -2201,7 +2201,8 @@ def stop_batch_route():
     return jsonify({"stopped": True})
 
 # ── SERVER LAUNCH ─────────────────────────────────────────────────
-def run_flask(): socketio.run(app, port=PORT, debug=False)
+def run_flask():
+    socketio.run(app, host="0.0.0.0", port=PORT, debug=False)
 
 def launch_dashboard():
     print("[Progress] Deduplicating and importing messages...")
