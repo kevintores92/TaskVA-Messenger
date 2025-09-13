@@ -2333,4 +2333,4 @@ def launch_dashboard():
     flask_thread.start()
 
 if __name__ == "__main__":
-    launch_dashboard()
+    socketio.run(app, host="0.0.0.0", port=PORT)
