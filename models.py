@@ -19,7 +19,7 @@ class PropertyTagHistory(Base):
 class ContactNote(Base):
     __tablename__ = 'contact_notes'
     id = Column(Integer, primary_key=True)
-    contact_id = Column(Integer, ForeignKey('contacts_new.id'))
+    contact_id = Column(Integer, ForeignKey('contacts.id'))
     value = Column(Text)
     timestamp = Column(DateTime)
 
@@ -33,7 +33,7 @@ class PropertyNote(Base):
 class CallLog(Base):
     __tablename__ = 'call_logs'
     id = Column(Integer, primary_key=True)
-    contact_id = Column(Integer, ForeignKey('contacts_new.id'))
+    contact_id = Column(Integer, ForeignKey('contacts.id'))
     phone_id = Column(Integer, ForeignKey('phones.id'))
     property_id = Column(Integer, ForeignKey('properties.id'), nullable=True)
     timestamp = Column(DateTime)
@@ -115,7 +115,7 @@ class PropertyContact(Base):
     __tablename__ = 'property_contacts'
     id = Column(Integer, primary_key=True)
     property_id = Column(Integer, ForeignKey('properties.id'))
-    contact_id = Column(Integer, ForeignKey('contacts_new.id'))
+    contact_id = Column(Integer, ForeignKey('contacts.id'))
     role = Column(String)
 
 class PropertyActivityLog(Base):
@@ -136,7 +136,7 @@ class Message(Base):
     timestamp = Column(DateTime)
     status = Column(String)
     twilio_number = Column(String)
-    contact_id = Column(Integer, ForeignKey('contacts_new.id'))
+    contact_id = Column(Integer, ForeignKey('contacts.id'))
 
 # --- Drip, Reminders, Campaigns ---
 class DripAutomation(Base):
@@ -154,7 +154,7 @@ class DripMessage(Base):
 class ContactDripAssignment(Base):
     __tablename__ = 'contact_drip_assignments'
     id = Column(Integer, primary_key=True)
-    contact_id = Column(Integer, ForeignKey('contacts_new.id'))
+    contact_id = Column(Integer, ForeignKey('contacts.id'))
     drip_id = Column(Integer, ForeignKey('drip_automations.id'))
     assigned_at = Column(DateTime)
     completed = Column(Boolean)
