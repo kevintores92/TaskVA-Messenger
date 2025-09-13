@@ -91,6 +91,13 @@ document.getElementById('reminderForm').addEventListener('submit', function(ev) 
         <input type="text" id="search" placeholder="Search...">
         <span id="clear-search" class="clear-btn">&times;</span>
       </div>
+        <div class="pagination-controls" style="position:static;display:inline-flex;align-items:center;margin-left:12px">
+          {% set start_idx = ((page - 1) * page_size) + 1 %}
+          {% set end_idx = start_idx + threads|length - 1 %}
+          <span>{{ start_idx }}-{{ end_idx }} of {{ total_threads }}</span>
+          <button {% if page <= 1 %}disabled{% endif %} onclick="window.location='?page={{ page - 1 }}'" style="margin:0 8px">&#60;</button>
+          <button {% if end_idx >= total_threads %}disabled{% endif %} onclick="window.location='?page={{ page + 1 }}'">&#62;</button>
+        </div>
       {% if box != 'inbox' %}
       <span class="mission-control-header">
         <ul class="mission-control">
@@ -109,13 +116,6 @@ document.getElementById('reminderForm').addEventListener('submit', function(ev) 
     </div>
     <!-- Threads List -->
     <div id="thread-list-inner">
-      <div class="pagination-controls" style="position:sticky;top:0;z-index:10;font-size:10px;padding:4px 0;display:flex;align-items:center;justify-content:center;margin-bottom:8px;">
-        {% set start_idx = ((page - 1) * page_size) + 1 %}
-        {% set end_idx = start_idx + threads|length - 1 %}
-        <span>{{ start_idx }}-{{ end_idx }} of {{ total_threads }}</span>
-        <button {% if page <= 1 %}disabled{% endif %} onclick="window.location='?page={{ page - 1 }}'" style="margin:0 8px;font-size:10px;">&#60;</button>
-        <button {% if end_idx >= total_threads %}disabled{% endif %} onclick="window.location='?page={{ page + 1 }}'" style="font-size:10px;">&#62;</button>
-      </div>
       {% include "_threads.html" %}
     </div>
   </div>
@@ -155,6 +155,23 @@ document.getElementById('reminderForm').addEventListener('submit', function(ev) 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone: phone, read: true })
     });
+    // Fetch thread details and update right panel
+    fetch(`/thread/${phone}`)
+      .then(res => res.json())
+      .then(data => {
+        // Update contact name and thread label
+        document.getElementById('contact-name').textContent = data.name || phone;
+        document.getElementById('contact-thread-label').textContent = phone;
+        // Update tag chips
+        document.getElementById('tag-chips').textContent = data.tag || '';
+        // Update notes
+        document.getElementById('notes').value = data.notes || '';
+        // Update contact extra info
+        let extra = '';
+        if (data.contact_extra) extra += data.contact_extra;
+        if (data.contact && data.contact.property_details) extra += ' ' + data.contact.property_details;
+        document.getElementById('contact-extra').textContent = extra.trim();
+      });
   }
 
   // Format timestamps as 'Sep 10' in thread list and messages

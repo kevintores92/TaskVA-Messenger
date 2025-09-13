@@ -383,7 +383,7 @@ def get_threads(search=None, tag_filters=None, box=None, page=1, page_size=50):
     return threads
 
 
-def deduplicate_and_import(preview_only=False, lookback_days=1):
+def deduplicate_and_import(preview_only=False, lookback_days=30):
     """
     Import recent messages from Twilio into the local DB.
     Uses a sliding window to ensure no outbound-api messages are skipped.
@@ -413,7 +413,7 @@ def deduplicate_and_import(preview_only=False, lookback_days=1):
     # Step 2: Sliding window - fetch last N days (default 3, configurable)
     lookback_days = max(lookback_days, 3)  # Extend lookback to at least 3 days
     since_dt = datetime.utcnow() - timedelta(days=lookback_days)
-    fetch_kwargs = {"limit": 3000, "date_sent_after": since_dt.isoformat() + "Z"}
+    fetch_kwargs = {"limit": 10000, "date_sent_after": since_dt.isoformat() + "Z"}
 
     twilio_msgs = []
     total_msgs = 0
@@ -1516,19 +1516,21 @@ def inbox():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     for t in all_threads:
-        c.execute("SELECT name, address, tag, notes FROM contacts WHERE phone=?", (t["phone"],))
+        c.execute("SELECT name, tag, notes, address, property_details FROM contacts WHERE phone=?", (t["phone"],))
         row = c.fetchone()
         if row:
-            t["name"] = row[0]
-            t["address"] = row[1]
-            t["tag"] = row[2]
-            t["notes"] = row[3]
-            t["contact_extra"] = row[1] if row[1] else ""
+            t["name"] = row[0] or ""
+            t["tag"] = row[1] or ""
+            t["notes"] = row[2] or ""
+            t["address"] = row[3] or ""
+            t["property_details"] = row[4] or ""
+            t["contact_extra"] = f"{row[3]} {row[4]}".strip() if row[3] or row[4] else ""
         else:
             t["name"] = ""
-            t["address"] = ""
             t["tag"] = ""
             t["notes"] = ""
+            t["address"] = ""
+            t["property_details"] = ""
             t["contact_extra"] = ""
     conn.close()
     # Default excluded tags for inbox view
