@@ -1524,6 +1524,25 @@ def inbox():
         page = 1
     page_size = 50
     all_threads = get_threads(search=search, box=box, page=page, page_size=page_size)
+    # Ensure each thread includes contact info
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    for t in all_threads:
+        c.execute("SELECT name, address, tag, notes FROM contacts WHERE phone=?", (t["phone"],))
+        row = c.fetchone()
+        if row:
+            t["name"] = row[0]
+            t["address"] = row[1]
+            t["tag"] = row[2]
+            t["notes"] = row[3]
+            t["contact_extra"] = row[1] if row[1] else ""
+        else:
+            t["name"] = ""
+            t["address"] = ""
+            t["tag"] = ""
+            t["notes"] = ""
+            t["contact_extra"] = ""
+    conn.close()
     # Default excluded tags for inbox view
     default_excluded = {"DNC", "No tag", "Wrong Number", "Unverified", "Not interested"}
     # If no filter is set, exclude default tags
@@ -1817,6 +1836,7 @@ def thread_view(phone):
     contact_main = {k: contact.get(k, "") for k in main_fields} if contact else {}
 
     # === Build response ===
+    contact_extra = contact.get("Address", "") if contact else ""
     return jsonify(dict(
         messages=convo_out,
         contact=contact_main,
@@ -1826,7 +1846,8 @@ def thread_view(phone):
         db_name=db_name,
         name=name,              # 🔑 Always return a top-level "name"
         tag=contact.get("tag", ""),
-        notes=contact.get("notes", "")
+        notes=contact.get("notes", ""),
+        contact_extra=contact_extra
     ))
 
 

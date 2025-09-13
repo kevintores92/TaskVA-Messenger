@@ -66,8 +66,8 @@ document.getElementById('reminderForm').addEventListener('submit', function(ev) 
     <div id="filter-bar" class="sticky-section search-bar">
       <button id="refreshBtn" class="icon-btn" onclick="reloadThreads()" title="Refresh">
         <svg xmlns="http://www.w3.org/2000/svg" 
-            width="16" height="16" fill="currentColor" 
-            viewBox="0 0 16 16">
+          width="16" height="16" fill="currentColor" 
+          viewBox="0 0 16 16">
           <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
           <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966a.25.25 0 0 1 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
         </svg>
@@ -105,55 +105,49 @@ document.getElementById('reminderForm').addEventListener('submit', function(ev) 
         </ul>
       </span>
       <span id="threadCount">{{ threads|length }} msgs</span>
-        {% endif %}
-      </div>
-      <!-- Threads List -->
-      <div id="thread-list-inner">
-        <div class="pagination-controls" style="position:sticky;top:0;z-index:10;background:#222;font-size:12px;padding:4px 0;display:flex;align-items:center;justify-content:center;margin-bottom:8px;">
-          {% set start_idx = ((page - 1) * page_size) + 1 %}
-          {% set end_idx = start_idx + threads|length - 1 %}
-          <span>{{ start_idx }}-{{ end_idx }} of {{ total_threads }}</span>
-          <button {% if page <= 1 %}disabled{% endif %} onclick="window.location='?page={{ page - 1 }}'" style="margin:0 8px;font-size:12px;">&#60;</button>
-          <button {% if end_idx >= total_threads %}disabled{% endif %} onclick="window.location='?page={{ page + 1 }}'" style="font-size:12px;">&#62;</button>
-        </div>
-        {% include "_threads.html" %}
-      </div>
+      {% endif %}
     </div>
-
+    <!-- Threads List -->
+    <div id="thread-list-inner">
+      <div class="pagination-controls" style="position:sticky;top:0;z-index:10;font-size:10px;padding:4px 0;display:flex;align-items:center;justify-content:center;margin-bottom:8px;">
+        {% set start_idx = ((page - 1) * page_size) + 1 %}
+        {% set end_idx = start_idx + threads|length - 1 %}
+        <span>{{ start_idx }}-{{ end_idx }} of {{ total_threads }}</span>
+        <button {% if page <= 1 %}disabled{% endif %} onclick="window.location='?page={{ page - 1 }}'" style="margin:0 8px;font-size:10px;">&#60;</button>
+        <button {% if end_idx >= total_threads %}disabled{% endif %} onclick="window.location='?page={{ page + 1 }}'" style="font-size:10px;">&#62;</button>
+      </div>
+      {% include "_threads.html" %}
+    </div>
+  </div>
   <script>
-  // ...existing code...
-  
-
-  // ...existing code...
-    fetch('/api/thread/read', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: phone, read: unread ? true : false })
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success) {
-        // Toggle icon
-        btn.setAttribute('data-unread', unread ? '0' : '1');
-        btn.querySelector('img').src = '/static/' + (unread ? 'icon-envelope-open.png' : 'icon-envelope.png');
-        // Toggle unread badge
-        const threadDiv = btn.closest('.thread.card');
-        const unreadBadge = threadDiv.querySelector('.unread-badge');
-        if (unreadBadge) {
-          if (unread) unreadBadge.remove();
-        } else {
-          if (!unread) {
-            const badge = document.createElement('span');
-            badge.className = 'unread-badge';
-            badge.style = 'color:red; margin-left:6px;';
-            badge.textContent = '●';
-            threadDiv.querySelector('.thread-name-label').after(badge);
-          }
+  fetch('/api/thread/read', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone: phone, read: unread ? true : false })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      // Toggle icon
+      btn.setAttribute('data-unread', unread ? '0' : '1');
+      btn.querySelector('img').src = '/static/' + (unread ? 'icon-envelope-open.png' : 'icon-envelope.png');
+      // Toggle unread badge
+      const threadDiv = btn.closest('.thread.card');
+      const unreadBadge = threadDiv.querySelector('.unread-badge');
+      if (unreadBadge) {
+        if (unread) unreadBadge.remove();
+      } else {
+        if (!unread) {
+          const badge = document.createElement('span');
+          badge.className = 'unread-badge';
+          badge.style = 'color:red; margin-left:6px;';
+          badge.textContent = '●';
+          threadDiv.querySelector('.thread-name-label').after(badge);
         }
       }
-    });
+    }
+  });
   }
-
   // Mark thread as read when opened
   function loadThread(phone) {
     fetch('/api/thread/read', {
@@ -161,7 +155,6 @@ document.getElementById('reminderForm').addEventListener('submit', function(ev) 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone: phone, read: true })
     });
-    // ...existing loadThread logic...
   }
 
   // Format timestamps as 'Sep 10' in thread list and messages
@@ -198,17 +191,16 @@ document.getElementById('reminderForm').addEventListener('submit', function(ev) 
     <div class="conversation-wrapper">
       <div id="messages" class="messages">
         {% for msg in messages %}
-          <div class="message {% if msg.inbound %}inbound{% else %}outbound{% endif %}">              
-            <div class="message-content">
-              <div class="bubble">{{ msg.text }}</div>
-              <div class="message-meta">
-                <div class="timestamp" data-raw-timestamp="{{ msg.timestamp }}">{{ msg.timestamp if msg.timestamp else '' }}</div>
-              </div>
+        <div class="message {% if msg.inbound %}inbound{% else %}outbound{% endif %}">              
+          <div class="message-content">
+            <div class="bubble">{{ msg.text }}</div>
+            <div class="message-meta">
+              <div class="timestamp" data-raw-timestamp="{{ msg.timestamp }}">{{ msg.timestamp if msg.timestamp else '' }}</div>
             </div>
           </div>
-            <div class="thread-time" data-raw-timestamp="${thread.timestamp}">${thread.timestamp}</div>
-            <button class="reminder-btn" onclick="openReminderPopup(event, '${thread.phone}')" title="Set Reminder">⏰</button>
-          
+        </div>
+        <div class="thread-time" data-raw-timestamp="${thread.timestamp}">${thread.timestamp}</div>
+        <button class="reminder-btn" onclick="openReminderPopup(event, '${thread.phone}')" title="Set Reminder">⏰</button>
         {% endfor %}
       </div>
     </div>
@@ -238,6 +230,7 @@ document.getElementById('reminderForm').addEventListener('submit', function(ev) 
     </div>
   </div>
 
-<div id="dripPopup" style="display:none;"></div>
+  <div id="dripPopup" style="display:none;"></div>
 
+</div>
 {% endblock %}

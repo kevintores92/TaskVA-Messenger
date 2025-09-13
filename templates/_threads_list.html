@@ -49,19 +49,6 @@
             {% endif %}
           </span>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <button class="gmail-icon-btn mark-read-btn" data-phone="{{ thread.phone }}" data-unread="{{ thread.unread|int }}" title="{{ 'Mark as Unread' if not thread.unread else 'Mark as Read' }}" aria-label="{{ 'Mark as Unread' if not thread.unread else 'Mark as Read' }}" onclick="event.stopPropagation(); toggleReadStatus(this)">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
-              {% if thread.unread %}
-                <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/>
-              {% else %}
-                <path d="M4 8l8 5 8-5v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8zm8-6L4 8l8 5 8-5-8-6z"/>
-              {% endif %}
-            </svg>
-          </button>
-          <button class="btn btn-sm call-btn" onclick="event.stopPropagation(); callContact('{{ thread.phone }}')">📞</button>
-          <button class="btn btn-sm reminder-btn" onclick="event.stopPropagation(); openReminderPopup(event, '{{ thread.phone }}')" title="Set Reminder">⏰</button>
-        </div>
       </div>
       <div class="thread-preview thread-body">{{ thread.latest | replace('\n', '<br>') | safe }}</div>
     </div>
@@ -85,6 +72,7 @@
           </svg>
         </button>
         <button class="btn btn-sm call-btn" onclick="event.stopPropagation(); callContact('{{ thread.phone }}')">📞</button>
+        <button class="btn btn-sm reminder-btn" onclick="event.stopPropagation(); openReminderPopup(event, '{{ thread.phone }}')" title="Set Reminder">⏰</button>
       </div>
       <script>
         function toggleReadStatus(btn) {
@@ -100,7 +88,8 @@
               btn.title = unread ? 'Mark as Read' : 'Mark as Unread';
               btn.ariaLabel = btn.title;
               // Optionally update UI
-              location.reload();
+              if (typeof reloadThreads === 'function') reloadThreads();
+              if (window.currentPhone === phone && typeof loadThread === 'function') loadThread(phone);
             }
           });
         }
