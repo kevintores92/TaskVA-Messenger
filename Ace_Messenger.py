@@ -651,7 +651,7 @@ def get_lead_breakdown(start_date=None, end_date=None):
     query = """
         SELECT contacts.tag, COUNT(messages.id)
         FROM messages
-        JOIN contacts ON CAST(messages.phone AS TEXT) = contacts.phone
+        JOIN contacts ON messages.phone = contacts.phone
         WHERE messages.direction = 'inbound'
     """
     params = []
@@ -686,6 +686,7 @@ def load_kpi_rows(limit_days=60):
     c.execute("SELECT MIN(date(timestamp)), MAX(date(timestamp)) FROM messages")
     min_date, max_date = c.fetchone()
     if not max_date:
+        conn.close()
         return [], [], [], [], [], {"total_sent": 0, "total_delivered": 0, "total_replies": 0, "avg_reply_time": "N/A"}
 
     # Build list of last limit_days dates
@@ -707,9 +708,7 @@ def load_kpi_rows(limit_days=60):
 
     delivery_rate = [round((d/s)*100,2) if s else 0 for s,d in zip(sent, delivered)]
 
-    # All-time stats
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
+    # All-time stats (reuse same connection/cursor)
     c.execute("SELECT COUNT(*) FROM messages WHERE direction LIKE 'outbound%'")
     total_sent = c.fetchone()[0]
     c.execute("SELECT COUNT(*) FROM messages WHERE direction LIKE 'outbound%' AND status='delivered'")
@@ -747,16 +746,7 @@ def get_top_campaigns(limit=3):
             GROUP BY contacts.campaign, contacts.tag
         """)
     except Exception:
-        try:
-            c.execute("""
-                SELECT contacts.Campaign, contacts.tag, COUNT(messages.id)
-                FROM messages
-                JOIN contacts ON messages.phone = contacts.phone
-                WHERE messages.direction = 'inbound'
-                GROUP BY contacts.Campaign, contacts.tag
-            """)
-        except Exception:
-            return []
+        return []
     rows = c.fetchall()
     from collections import defaultdict
     tags = ["Warm", "Nurture", "Drip", "Not interested", "Wrong Number", "DNC"]
@@ -1108,9 +1098,8 @@ def api_reminder():
 def dashboard():
     # Show stats for all time (no week selection)
     conn = sqlite3.connect(DB_PATH)
-    # For most charts, show last 7 days; for Sent/Replies chart, show last 30 days
+    # For all charts, show last 7 days only
     dates_7, sent_7, delivered_7, delivery_rate_7, replies_7, latest = load_kpi_rows(limit_days=7)
-    dates_30, sent_30, delivered_30, delivery_rate_30, replies_30, _ = load_kpi_rows(limit_days=30)
     lead_breakdown = get_lead_breakdown()
     top_campaigns = get_top_campaigns()
     return render_template(
@@ -1122,10 +1111,7 @@ def dashboard():
         sent_7=sent_7,
         delivered_7=delivered_7,
         delivery_rate_7=delivery_rate_7,
-        replies_7=replies_7,
-        dates_30=dates_30,
-        sent_30=sent_30,
-        replies_30=replies_30
+        replies_7=replies_7
     )
     
 
