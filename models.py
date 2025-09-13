@@ -40,21 +40,6 @@ class CallLog(Base):
     duration = Column(Integer)  # seconds
     notes = Column(Text)
 
-class ContactNew(Base):
-    __tablename__ = 'contacts_new'
-    id = Column(Integer, primary_key=True)
-    first_name = Column(String)
-    last_name = Column(String)
-    phone = Column(String)
-    address = Column(String)
-    mailing_care_of_name = Column(String)
-    mailing_street_address = Column(String)
-    mailing_unit = Column(String)
-    mailing_city = Column(String)
-    mailing_state = Column(String)
-    mailing_zip = Column(String)
-    mailing_county = Column(String)
-    type = Column(String)
 
 class Phone(Base):
     __tablename__ = 'phones'
