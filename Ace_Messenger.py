@@ -1443,13 +1443,12 @@ def inbox():
             t for t in all_threads
             if parse_date(t.get("timestamp")) and parse_date(t["timestamp"]) <= to_d
         ]
-    threads = all_threads  
-    # For pagination controls, get total thread count
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT COUNT(DISTINCT phone) FROM messages")
-    total_threads_count = c.fetchone()[0]
-    conn.close()
+    # Pagination logic
+    total_threads_count = len(all_threads)
+    start_idx = (page - 1) * page_size
+    end_idx = start_idx + page_size
+    threads = all_threads[start_idx:end_idx]
+    # For pagination controls, use filtered thread count
     unread_count = len([t for t in all_threads if t.get("latest_direction") == "inbound" and not t.get("read")])
     unanswered_count = len([t for t in all_threads if t.get("latest_direction") == "inbound" and not t.get("responded")])
     reminders_count = 0  # later query reminders table

@@ -109,6 +109,13 @@ document.getElementById('reminderForm').addEventListener('submit', function(ev) 
       </div>
       <!-- Threads List -->
       <div id="thread-list-inner">
+        <div class="pagination-controls" style="position:sticky;top:0;z-index:10;background:#222;font-size:12px;padding:4px 0;display:flex;align-items:center;justify-content:center;margin-bottom:8px;">
+          {% set start_idx = ((page - 1) * page_size) + 1 %}
+          {% set end_idx = start_idx + threads|length - 1 %}
+          <span>{{ start_idx }}-{{ end_idx }} of {{ total_threads }}</span>
+          <button {% if page <= 1 %}disabled{% endif %} onclick="window.location='?page={{ page - 1 }}'" style="margin:0 8px;font-size:12px;">&#60;</button>
+          <button {% if end_idx >= total_threads %}disabled{% endif %} onclick="window.location='?page={{ page + 1 }}'" style="font-size:12px;">&#62;</button>
+        </div>
         {% include "_threads.html" %}
       </div>
     </div>
