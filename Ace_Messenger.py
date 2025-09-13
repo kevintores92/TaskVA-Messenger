@@ -18,15 +18,15 @@ from sqlalchemy import asc, desc
 from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker
 # Import your models (adjust the import path as needed)
-# Example: from models import Messages, ContactsNew, ContactPhones, Phones
+# Example: from models import Messages, ContactPhones, Phones
 # If your models are in the same file, define them above this import section
 try:
-    from models import Messages, ContactsNew, ContactPhones, Phones, Properties, PropertyContacts, PropertyActivityLog
+    from models import Messages, Contact, ContactPhones, Phones, Properties, PropertyContacts, PropertyActivityLog
 except ImportError:
     # Define dummy classes if not available (for code to run, but you should use your real models)
     class Messages:
         pass
-    class ContactsNew:
+    class Contact:
         pass
     class ContactPhones:
         pass
@@ -272,7 +272,7 @@ def get_threads(search=None, tag_filters=None, box=None, page=1, page_size=50):
     threads = []
     for msg in query:
         # Get contact info from normalized tables
-        contact = session.query(ContactsNew).join(ContactPhones, ContactsNew.id == ContactPhones.contact_id).join(Phones, ContactPhones.phone_id == Phones.id).filter(Phones.phone == msg.phone).first()
+        contact = session.query(Contact).join(ContactPhones, Contact.id == ContactPhones.contact_id).join(Phones, ContactPhones.phone_id == Phones.id).filter(Phones.phone == msg.phone).first()
         name = (contact.first_name + " " + contact.last_name) if contact else ""
         address = getattr(contact, "address", "") if contact and hasattr(contact, "address") else ""
         tag = getattr(contact, "tag", "") if contact and hasattr(contact, "tag") else ""
@@ -326,7 +326,7 @@ def get_threads(search=None, tag_filters=None, box=None, page=1, page_size=50):
     return threads
 
 
-def deduplicate_and_import(preview_only=False, lookback_days=30):
+def deduplicate_and_import(preview_only=False, lookback_days=1):
     """
     Import recent messages from Twilio into the local DB.
     Uses a sliding window to ensure no outbound-api messages are skipped.
@@ -356,7 +356,7 @@ def deduplicate_and_import(preview_only=False, lookback_days=30):
     # Step 2: Sliding window - fetch last N days (default 3, configurable)
     lookback_days = max(lookback_days, 3)  # Extend lookback to at least 3 days
     since_dt = datetime.utcnow() - timedelta(days=lookback_days)
-    fetch_kwargs = {"limit": 10000, "date_sent_after": since_dt.isoformat() + "Z"}
+    fetch_kwargs = {"limit": 1000, "date_sent_after": since_dt.isoformat() + "Z"}
 
     twilio_msgs = []
     total_msgs = 0
@@ -579,7 +579,7 @@ def get_lead_breakdown(start_date=None, end_date=None):
     session = SessionLocal()
     tags = ["Warm", "Nurture", "Drip", "Not interested", "Wrong Number", "DNC"]
     result = {tag: 0 for tag in tags}
-    query = session.query(Messages, ContactsNew).join(ContactsNew, Messages.phone == ContactsNew.id).filter(Messages.direction == 'inbound')
+    query = session.query(Messages, Contact).join(Contact, Messages.phone == Contact.id).filter(Messages.direction == 'inbound')
     if start_date and end_date:
         query = query.filter(func.date(Messages.timestamp) >= start_date, func.date(Messages.timestamp) <= end_date)
     for msg, contact in query:
@@ -635,7 +635,7 @@ def get_top_campaigns(limit=3):
     tags = ["Warm", "Nurture", "Drip", "Not interested", "Wrong Number", "DNC"]
     from collections import defaultdict
     camp_data = defaultdict(lambda: {tag: 0 for tag in tags})
-    query = session.query(ContactsNew.campaign, ContactsNew.tag, func.count(Messages.id)).join(Messages, Messages.phone == ContactsNew.id).filter(Messages.direction == 'inbound').group_by(ContactsNew.campaign, ContactsNew.tag)
+    query = session.query(Contact.campaign, Contact.tag, func.count(Messages.id)).join(Messages, Messages.phone == Contact.id).filter(Messages.direction == 'inbound').group_by(Contact.campaign, Contact.tag)
     for camp, tag, count in query:
         camp = camp or "(No Campaign)"
         if tag in camp_data[camp]:
@@ -824,7 +824,7 @@ def contacts_page():
 @app.route("/contacts/edit/<int:contact_id>", methods=["GET", "POST"])
 def edit_contact(contact_id):
     session = SessionLocal()
-    contact = session.query(ContactsNew).get(contact_id)
+    contact = session.query(Contact).get(contact_id)
     if request.method == "POST":
         contact.first_name = request.form.get("first_name", "")
         contact.last_name = request.form.get("last_name", "")
@@ -842,7 +842,7 @@ def edit_contact(contact_id):
 @app.route("/contacts/delete/<int:contact_id>", methods=["POST"])
 def delete_contact(contact_id):
     session = SessionLocal()
-    contact = session.query(ContactsNew).get(contact_id)
+    contact = session.query(Contact).get(contact_id)
     if contact:
         session.delete(contact)
         session.commit()
@@ -1177,7 +1177,7 @@ def property_account_page(property_id):
     contacts = []
     prop_contacts = session.query(PropertyContacts).filter(PropertyContacts.property_id == property_id).all()
     for pc in prop_contacts:
-        contact = session.query(ContactsNew).filter(ContactsNew.id == pc.contact_id).first()
+        contact = session.query(Contact).filter(Contact.id == pc.contact_id).first()
         phones = session.query(Phones).join(ContactPhones, Phones.id == ContactPhones.phone_id).filter(ContactPhones.contact_id == contact.id).all()
         portfolio = session.query(Properties).join(PropertyContacts, Properties.id == PropertyContacts.property_id).filter(PropertyContacts.contact_id == contact.id).all()
         contacts.append({
@@ -1231,7 +1231,7 @@ def add_property():
 def add_contact():
     data = request.get_json(force=True)
     session = SessionLocal()
-    contact = ContactsNew(
+    contact = Contact(
         first_name=data.get("first_name"),
         last_name=data.get("last_name"),
         type=data.get("type")
@@ -1433,7 +1433,7 @@ def inbox():
     # Enrich threads with normalized contact info
     session = SessionLocal()
     for t in all_threads:
-        contact = session.query(ContactsNew).join(ContactPhones, ContactsNew.id == ContactPhones.contact_id).join(Phones, ContactPhones.phone_id == Phones.id).filter(Phones.phone == t["phone"]).first()
+        contact = session.query(Contact).join(ContactPhones, Contact.id == ContactPhones.contact_id).join(Phones, ContactPhones.phone_id == Phones.id).filter(Phones.phone == t["phone"]).first()
         if contact:
             t["name"] = f"{contact.first_name} {contact.last_name}".strip()
             t["tag"] = getattr(contact, "tag", "")
