@@ -120,14 +120,12 @@ const sent = {{ sent_7|tojson }};
 const delivered = {{ delivered_7|tojson }};
 const delivery_rate = {{ delivery_rate_7|tojson }};
 const replies = {{ replies_7|tojson }};
-const dates30 = {{ dates_30|tojson }};
-const sent30 = {{ sent_30|tojson }};
-const replies30 = {{ replies_30|tojson }};
+// Removed 30-day variables; only using 7-day data
 
 // Lead Breakdown Donut
 const leadBreakdownData = {
   labels: [
-    'Hot Leads',
+    'Hot',
     'Nurture',
     'Drip',
     'Not interested',
@@ -136,7 +134,7 @@ const leadBreakdownData = {
   ],
   datasets: [{
     data: [
-      {{ lead_breakdown['Hot Leads'] }},
+      {{ lead_breakdown['Hot'] }},
       {{ lead_breakdown['Nurture'] }},
       {{ lead_breakdown['Drip'] }},
       {{ lead_breakdown['Not interested'] }},
@@ -203,10 +201,10 @@ new Chart(document.getElementById('repliesChart'), {
   options: { responsive: true, maintainAspectRatio: false, aspectRatio: 2.2 }
 });
 
-// Line chart last 30 days
+// Line chart last 7 days
 new Chart(document.getElementById('lineChart'), {
   type: 'line',
-  data: { labels: dates30, datasets: [{ label: 'Sent', data: sent30 }, { label: 'Replies', data: replies30 }] },
+  data: { labels: dates, datasets: [{ label: 'Sent', data: sent }, { label: 'Replies', data: replies }] },
   options: { responsive: true, maintainAspectRatio: false, aspectRatio: 1.8 }
 });
 </script>
