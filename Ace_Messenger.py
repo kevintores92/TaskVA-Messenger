@@ -2319,18 +2319,5 @@ def stop_batch_route():
     return jsonify({"stopped": True})
 
 # ── SERVER LAUNCH ─────────────────────────────────────────────────
-def run_flask():
-    socketio.run(app, host="0.0.0.0", port=PORT, debug=False)
-
-def launch_dashboard():
-    print("[Progress] Deduplicating and importing messages...")
-    deduplicate_and_import()
-    print("[Progress] Updating Twilio webhooks...")
-    update_webhooks("https://resimpli-launch.onrender.com")
-    print("[Progress] Launching dashboard in browser...")
-    webbrowser.open(f"http://127.0.0.1:{PORT}")
-    flask_thread = threading.Thread(target=run_flask)
-    flask_thread.start()
-
 if __name__ == "__main__":
     socketio.run(app, host="0.0.0.0", port=PORT)
