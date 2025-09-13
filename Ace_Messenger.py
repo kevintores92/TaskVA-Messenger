@@ -906,6 +906,83 @@ def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # ── ROUTES ────────────────────────────────────────────────────────
+# --- Leads Kanban Page ---
+@app.route("/leads", methods=["GET"])
+def leads_kanban():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    # Get all properties and their primary contact, phone, tag, and latest activity
+    c.execute("PRAGMA table_info(properties)")
+    prop_cols = [row[1] for row in c.fetchall()]
+    c.execute(f"SELECT {', '.join(prop_cols)}, id FROM properties")
+    properties = [dict(zip(prop_cols + ["id"], r)) for r in c.fetchall()]
+    # Get contacts, tags, phones, and latest activity for each property
+    stages = [
+        "new_leads", "warm_leads", "no_contact_made", "contact_made", "appointment_set", "offers_made", "under_contract", "dispo", "closed"
+    ]
+    stage_map = {s: [] for s in stages}
+    for prop in properties:
+        # Get contacts for property
+        c.execute("""
+            SELECT pc.role, cn.id, cn.first_name, cn.last_name, cn.type, cn.tag
+            FROM property_contacts pc
+            JOIN contacts_new cn ON pc.contact_id = cn.id
+            WHERE pc.property_id=? ORDER BY pc.role DESC LIMIT 1
+        """, (prop["id"],))
+        contact = c.fetchone()
+        contact_name = f"{contact[2]} {contact[3]}" if contact else ""
+        contact_tag = contact[5] if contact else ""
+        contact_id = contact[1] if contact else None
+        # Get phone
+        phone = ""
+        if contact_id:
+            c.execute("""
+                SELECT p.phone FROM contact_phones cp
+                JOIN phones p ON cp.phone_id = p.id
+                WHERE cp.contact_id=? LIMIT 1
+            """, (contact_id,))
+            phone_row = c.fetchone()
+            phone = phone_row[0] if phone_row else ""
+        # Get latest activity log
+        c.execute("SELECT timestamp FROM property_activity_log WHERE property_id=? ORDER BY timestamp DESC LIMIT 1", (prop["id"],))
+        last_update = c.fetchone()
+        last_update_str = last_update[0] if last_update else ""
+        # Get tag icon and drip tooltip
+        tag_icon = TAG_ICONS.get(contact_tag, "")
+        drip_tooltip = "Drip" if contact_tag == "Drip" else ""
+        # Determine stage
+        # New Leads: replied, not DNC/Wrong Number/Not interested
+        c.execute("""
+            SELECT contacts.tag FROM messages
+            JOIN contacts ON CAST(messages.phone AS TEXT) = contacts.phone
+            WHERE messages.direction = 'inbound' AND contacts.phone=?
+            ORDER BY messages.timestamp DESC LIMIT 1
+        """, (phone,))
+        last_tag_row = c.fetchone()
+        last_tag = last_tag_row[0] if last_tag_row else contact_tag
+        if last_tag not in ["DNC", "Wrong Number", "Not interested"]:
+            stage_map["new_leads"].append({
+                "property_id": prop["id"],
+                "address": prop["address"],
+                "contact_name": contact_name,
+                "phone": phone,
+                "last_update": last_update_str,
+                "tag_icon": tag_icon,
+                "drip_tooltip": drip_tooltip
+            })
+        elif last_tag == "Warm":
+            stage_map["warm_leads"].append({
+                "property_id": prop["id"],
+                "address": prop["address"],
+                "contact_name": contact_name,
+                "phone": phone,
+                "last_update": last_update_str,
+                "tag_icon": tag_icon,
+                "drip_tooltip": drip_tooltip
+            })
+        # TODO: Add logic for other stages based on activity log or tag changes
+    conn.close()
+    return render_template("leads.html", stages=stage_map)
 
 # --- Direct Import/List Page ---
 @app.route("/direct-import", methods=["GET"])
