@@ -25,36 +25,16 @@
         <!-- Property Details Grid -->
         <div class="property-details-grid">
             <div class="property-detail-group">
-                <h4>Basic Info</h4>
-                <div class="property-detail-row"><span class="property-detail-label">Address</span><span class="property-detail-value">{{ property.address }}</span></div>
-                <div class="property-detail-row"><span class="property-detail-label">Unit</span><span class="property-detail-value">{{ property.unit }}</span></div>
-                <div class="property-detail-row"><span class="property-detail-label">City</span><span class="property-detail-value">{{ property.city }}</span></div>
-                <div class="property-detail-row"><span class="property-detail-label">State</span><span class="property-detail-value">{{ property.state }}</span></div>
-                <div class="property-detail-row"><span class="property-detail-label">Zip</span><span class="property-detail-value">{{ property.zip }}</span></div>
-                <div class="property-detail-row"><span class="property-detail-label">County</span><span class="property-detail-value">{{ property.county }}</span></div>
+                <h4>All Property Details</h4>
+                {% for key, value in property.items() %}
+                    {% if key not in ['id'] %}
+                    <div class="property-detail-row">
+                        <span class="property-detail-label">{{ key|replace('_', ' ')|title }}</span>
+                        <span class="property-detail-value">{{ value }}</span>
+                    </div>
+                    {% endif %}
+                {% endfor %}
             </div>
-            <div class="property-detail-group">
-                <h4>Owner Info</h4>
-                <div class="property-detail-row"><span class="property-detail-label">Owner Occupied</span><span class="property-detail-value">{{ property.owner_occupied }}</span></div>
-                <div class="property-detail-row"><span class="property-detail-label">Owner 1</span><span class="property-detail-value">{{ property.owner1_first_name }} {{ property.owner1_last_name }}</span></div>
-                <div class="property-detail-row"><span class="property-detail-label">Owner 2</span><span class="property-detail-value">{{ property.owner2_first_name }} {{ property.owner2_last_name }}</span></div>
-            </div>
-            <div class="property-detail-group">
-                <h4>Valuation</h4>
-                <div class="property-detail-row"><span class="property-detail-label">Estimated Value</span><span class="property-detail-value">${{ property.estimated_value }}</span></div>
-                <div class="property-detail-row"><span class="property-detail-label">Estimated Equity</span><span class="property-detail-value">${{ property.estimated_equity }}</span></div>
-                <div class="property-detail-row"><span class="property-detail-label">Total Liens</span><span class="property-detail-value">${{ property.estimated_total_liens }}</span></div>
-            </div>
-            <div class="property-detail-group">
-                <h4>Property Info</h4>
-                <div class="property-detail-row"><span class="property-detail-label">Type</span><span class="property-detail-value">{{ property.property_type }}</span></div>
-                <div class="property-detail-row"><span class="property-detail-label">Beds</span><span class="property-detail-value">{{ property.bedrooms }}</span></div>
-                <div class="property-detail-row"><span class="property-detail-label">Baths</span><span class="property-detail-value">{{ property.total_bathrooms }}</span></div>
-                <div class="property-detail-row"><span class="property-detail-label">Area</span><span class="property-detail-value">{{ property.sq_ft }} Sq Ft</span></div>
-                <div class="property-detail-row"><span class="property-detail-label">Lot Size</span><span class="property-detail-value">{{ property.lot_size_sqft }} Sq Ft</span></div>
-                <div class="property-detail-row"><span class="property-detail-label">Year Built</span><span class="property-detail-value">{{ property.yr_built }}</span></div>
-            </div>
-            <!-- Add more groups as needed for other headers -->
         </div>
     </div>
     <div class="right-panel" style="width:30%;min-width:340px;">

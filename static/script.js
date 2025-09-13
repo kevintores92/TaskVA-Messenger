@@ -545,17 +545,15 @@ function addToLeads() {
 let boxFilter = "all"; 
 // Use the same tags as backend (TAGS in Ace_Messenger.py)
 const tags = [
-  "Hot", "Nurture", "Drip", "Qualified", "Wrong Number", "Not interested", "DNC"
+  "Warm", "Nurture", "Drip", "Wrong Number", "Not interested", "DNC"
 ];
 const tagIcons = {
-  "Hot": "🔥",
+  "Warm": "🌡️",
   "Nurture": "🌱",
   "Drip": "💧",
-  "Qualified": "✅",
-  "Wrong Number": "❌",
-  "Not interested": "🚫",
+  "Wrong Number": "❗",
+  "Not interested": "❌",
   "DNC": "📵",
-  "No tag": "🏷️"
 };
 
 let selectedtag = "";

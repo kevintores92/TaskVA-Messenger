@@ -37,17 +37,15 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 stop_batch = False
 
 TAGS = [
-    "Hot", "Nurture", "Drip", "Qualified", "Wrong Number", "Not interested", "DNC"
+    "Warm", "Nurture", "Drip", "Wrong Number", "Not interested", "DNC"
 ]
 TAG_ICONS = {
-    "Hot": "🔥",
+    "Warm": "🌡️",
     "Nurture": "🌱",
     "Drip": "💧",
-    "Qualified": "✅",
     "Wrong Number": "❗",
     "Not interested": "❌",
     "DNC": "📵",
-    "No tag": "🏷️"
 }
 
 # ── HELPERS ────────────────────────────────────────────────────────
@@ -647,13 +645,13 @@ def get_lead_breakdown(start_date=None, end_date=None):
     If start_date and end_date are provided, filters replies by date.
     """
     if not os.path.exists(DB_PATH):
-        return {"Hot": 0, "Nurture": 0, "Drip": 0, "Not interested": 0, "Wrong Number": 0, "DNC": 0, "total": 0}
+        return {"Warm": 0, "Nurture": 0, "Drip": 0, "Not interested": 0, "Wrong Number": 0, "DNC": 0, "total": 0}
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     query = """
         SELECT contacts.tag, COUNT(messages.id)
         FROM messages
-        JOIN contacts ON messages.phone = contacts.phone
+        JOIN contacts ON CAST(messages.phone AS TEXT) = contacts.phone
         WHERE messages.direction = 'inbound'
     """
     params = []
@@ -663,11 +661,13 @@ def get_lead_breakdown(start_date=None, end_date=None):
     query += " GROUP BY contacts.tag"
     c.execute(query, params)
     rows = c.fetchall()
-    tags = ["Hot", "Nurture", "Drip", "Not interested", "Wrong Number", "DNC"]
+    tags = ["Warm", "Nurture", "Drip", "Not interested", "Wrong Number", "DNC"]
     result = {tag: 0 for tag in tags}
     for tag, count in rows:
         if tag in result:
             result[tag] = count
+        else:
+            result["No tag"] = result.get("No tag", 0) + count
     result["total"] = sum(result.values())
     conn.close()
     return result
@@ -731,7 +731,7 @@ def load_kpi_rows(limit_days=60):
 # --- Helper: get top campaigns for dashboard ---
 def get_top_campaigns(limit=3):
     """
-    Returns a list of dicts: [{name, Hot, Nurture, Drip, Not interested, Wrong Number, DNC, total}], sorted by total leads desc.
+    Returns a list of dicts: [{name, Warm, Nurture, Drip, Not interested, Wrong Number, DNC, total}], sorted by total leads desc.
     """
     if not os.path.exists(DB_PATH):
         return []
@@ -759,7 +759,7 @@ def get_top_campaigns(limit=3):
             return []
     rows = c.fetchall()
     from collections import defaultdict
-    tags = ["Hot", "Nurture", "Drip", "Not interested", "Wrong Number", "DNC"]
+    tags = ["Warm", "Nurture", "Drip", "Not interested", "Wrong Number", "DNC"]
     camp_data = defaultdict(lambda: {tag: 0 for tag in tags})
     for camp, tag, count in rows:
         camp = camp or "(No Campaign)"
@@ -809,7 +809,41 @@ def ensure_properties_tables():
             city TEXT,
             state TEXT,
             zip TEXT,
-            UNIQUE(address, unit, city, state, zip)
+            county TEXT,
+            apn TEXT,
+            zillow_link TEXT,
+            bd_ba TEXT,
+            sq_ft TEXT,
+            yr_built TEXT,
+            last_sale TEXT,
+            last_sale_amount TEXT,
+            campaign TEXT,
+            do_not_mail TEXT,
+            property_type TEXT,
+            bedrooms TEXT,
+            total_bathrooms TEXT,
+            building_sqft TEXT,
+            lot_size_sqft TEXT,
+            effective_year_built TEXT,
+            total_assessed_value TEXT,
+            last_sale_recording_date TEXT,
+            last_sale_amount_num TEXT,
+            total_open_loans TEXT,
+            est_remaining_balance_open_loans TEXT,
+            est_value TEXT,
+            est_loan_to_value TEXT,
+            est_equity TEXT,
+            total_condition TEXT,
+            interior_condition TEXT,
+            exterior_condition TEXT,
+            bathroom_condition TEXT,
+            kitchen_condition TEXT,
+            foreclosure_factor TEXT,
+            mls_status TEXT,
+            mls_date TEXT,
+            mls_amount TEXT,
+            lien_amount TEXT,
+            UNIQUE(address, unit, city, state, zip, apn)
         )
     ''')
     # Contacts table
@@ -1023,6 +1057,13 @@ def import_list():
     if request.method == "POST":
         file = request.files.get("file")
         campaign_name = request.form.get("campaign_name")
+        # Mapping: expects a JSON string in form field 'mapping' (header->db_field)
+        mapping = request.form.get("mapping")
+        import json
+        if mapping:
+            mapping = json.loads(mapping)
+        else:
+            mapping = {}
         if not file or not allowed_file(file.filename):
             return "Invalid file", 400
         filename = secure_filename(file.filename)
@@ -1039,39 +1080,45 @@ def import_list():
             row_id = c.lastrowid
             for key, value in row.items():
                 c.execute("INSERT INTO campaign_row_data (row_id, key, value) VALUES (?, ?, ?)", (row_id, key, value))
-            # --- Insert all headers and row data into properties table ---
-            # Get all columns from properties table
-            c.execute("PRAGMA table_info(properties)")
-            existing_cols = [col[1] for col in c.fetchall()]
-            # Add new columns if needed (skip if already exists)
-            for key in row.keys():
-                if key not in existing_cols:
-                    try:
-                        c.execute(f"ALTER TABLE properties ADD COLUMN '{key}' TEXT")
-                        existing_cols.append(key)
-                    except Exception as e:
-                        if "duplicate column name" not in str(e):
-                            print(f"[Import] Could not add column {key}: {e}")
-            # Add count column if not present
-            if 'count' not in existing_cols:
-                try:
-                    c.execute("ALTER TABLE properties ADD COLUMN count INTEGER")
-                    existing_cols.append('count')
-                except Exception as e:
-                    print(f"[Import] Could not add count column: {e}")
-            # Prepare insert values
-            insert_cols = [col for col in row.keys()]
-            insert_vals = [row[col] for col in insert_cols]
-            # Add count value (row number)
-            insert_cols = ['count'] + insert_cols
-            insert_vals = [total_rows + 1] + insert_vals
-            # Build insert statement
-            placeholders = ','.join(['?' for _ in insert_cols])
-            col_names = ','.join([f'"{col}"' for col in insert_cols])
-            try:
-                c.execute(f"INSERT INTO properties ({col_names}) VALUES ({placeholders})", insert_vals)
-            except Exception as e:
-                print(f"[Import] Property insert error: {e}")
+            # --- Distribute to tables based on mapping ---
+            contact_data = {}
+            phone_data = []
+            property_data = {}
+            for csv_header, db_field in mapping.items():
+                val = row.get(csv_header, "")
+                if db_field in ["first_name", "last_name", "mailing_address", "mailing_city", "mailing_state", "mailing_zip", "mailing_county", "notes", "tag"]:
+                    contact_data[db_field] = val
+                elif db_field in ["phone", "line_type"]:
+                    phone_data.append((db_field, val))
+                elif db_field in ["address", "unit", "city", "state", "zip", "county", "apn", "zillow_link", "bd_ba", "sq_ft", "yr_built", "last_sale", "last_sale_amount", "campaign", "do_not_mail", "property_type", "bedrooms", "total_bathrooms", "building_sqft", "lot_size_sqft", "effective_year_built", "total_assessed_value", "last_sale_recording_date", "last_sale_amount_num", "total_open_loans", "est_remaining_balance_open_loans", "est_value", "est_loan_to_value", "est_equity", "total_condition", "interior_condition", "exterior_condition", "bathroom_condition", "kitchen_condition", "foreclosure_factor", "mls_status", "mls_date", "mls_amount", "lien_amount"]:
+                    property_data[db_field] = val
+            # Insert contact
+            contact_id = None
+            if contact_data:
+                cols = ','.join(contact_data.keys())
+                vals = [contact_data[k] for k in contact_data.keys()]
+                placeholders = ','.join(['?' for _ in contact_data])
+                c.execute(f"INSERT INTO contacts_new ({cols}) VALUES ({placeholders})", vals)
+                contact_id = c.lastrowid
+            # Insert phones
+            for field, val in phone_data:
+                if val:
+                    c.execute("INSERT OR IGNORE INTO phones (phone) VALUES (?)", (val,))
+                    c.execute("SELECT id FROM phones WHERE phone=?", (val,))
+                    phone_id = c.fetchone()[0]
+                    if contact_id:
+                        c.execute("INSERT OR IGNORE INTO contact_phones (contact_id, phone_id) VALUES (?, ?)", (contact_id, phone_id))
+            # Insert property
+            property_id = None
+            if property_data:
+                cols = ','.join(property_data.keys())
+                vals = [property_data[k] for k in property_data.keys()]
+                placeholders = ','.join(['?' for _ in property_data])
+                c.execute(f"INSERT INTO properties ({cols}) VALUES ({placeholders})", vals)
+                property_id = c.lastrowid
+            # Link contact and property
+            if contact_id and property_id:
+                c.execute("INSERT OR IGNORE INTO property_contacts (property_id, contact_id, role) VALUES (?, ?, ?)", (property_id, contact_id, "owner"))
             total_rows += 1
         c.execute("UPDATE campaigns SET total_rows=? WHERE id=?", (total_rows, campaign_id))
         conn.commit()
@@ -1109,20 +1156,15 @@ def properties_main():
 def property_account_page(property_id):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute(
-        "SELECT id, address, unit, city, state, zip FROM properties WHERE id=?", (property_id,))
-    prop = c.fetchone()
-    if not prop:
+    # Get all columns for this property
+    c.execute("PRAGMA table_info(properties)")
+    prop_cols = [row[1] for row in c.fetchall()]
+    c.execute(f"SELECT {', '.join(prop_cols)} FROM properties WHERE id=?", (property_id,))
+    prop_row = c.fetchone()
+    if not prop_row:
         conn.close()
         return "Property not found", 404
-    property_info = {
-        "id": prop[0],
-        "address": prop[1],
-        "unit": prop[2],
-        "city": prop[3],
-        "state": prop[4],
-        "zip": prop[5],
-    }
+    property_info = dict(zip(prop_cols, prop_row))
     c.execute("""
         SELECT pc.role, cn.id, cn.first_name, cn.last_name, cn.type
         FROM property_contacts pc
